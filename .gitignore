@@ -7,3 +7,4 @@
 /.yarn/
 /.pnp.*
 /.calcit-error.cirru
+.DS_Store

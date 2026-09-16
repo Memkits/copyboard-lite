@@ -968,8 +968,8 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unionid"
-version = "0.5.0"
-source = "git+https://github.com/worktools/unionid.git?rev=b46a22fd2ff1d9797848d23b9ee6b4d5bcf610a8#b46a22fd2ff1d9797848d23b9ee6b4d5bcf610a8"
+version = "0.6.0"
+source = "git+https://github.com/worktools/unionid.git?rev=3f0ed5bd4e726b02d3875adee237cce4f03f54b7#3f0ed5bd4e726b02d3875adee237cce4f03f54b7"
 dependencies = [
  "base64",
  "clap",

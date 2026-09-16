@@ -18,20 +18,25 @@ use sha2::Sha256;
 use tokio::sync::Mutex;
 use unionid::{Engine, Value};
 
-const INITIAL_SCHEMA: &str = r#"migration m0001_initial
-  add type Snippet =
-    id int
-    content text
-    created_at int
-    owner text
-  add table snippets Snippet key id
+const INITIAL_SCHEMA: &str = r#"migration m0001_initial {
+  add struct Snippet {
+    id: int
+    content: text
+    created_at: int
+    owner: text
+  }
+  add table snippets: Snippet {
+    key id
+  }
   add index snippets.created_at
   add index snippets.owner
+}
 "#;
 
-const AUTH_MIGRATION: &str = r#"migration m0002_auth
-  add field Snippet.owner text = "legacy"
+const AUTH_MIGRATION: &str = r#"migration m0002_auth {
+  add field Snippet.owner: text = "legacy"
   add index snippets.owner
+}
 "#;
 
 const LIST: &str = "from snippets | filter owner == $owner | sort -created_at";
@@ -565,14 +570,16 @@ mod tests {
         let database = temp_database("legacy");
         let mut engine = Engine::open_redb(&database).unwrap();
         let setup = engine.execute(
-            r#"type Snippet =
-  id int
-  content text
-  created_at int
-table snippets Snippet
+            r#"struct Snippet {
+  id: int
+  content: text
+  created_at: int
+}
+table snippets: Snippet {
   key id
+}
 create index snippets (created_at)
-insert snippets {id = 1, content = "old shared row", created_at = 1}
+insert snippets {id: 1, content: "old shared row", created_at: 1}
 "#,
         );
         assert!(setup.ok, "{}", setup.message);

@@ -2,6 +2,8 @@
 
 一个用于验证 [UnionID](https://github.com/worktools/unionid) 的轻量 Copyboard：Rust/HTTP 后端、Calcit.js 前端，界面参考 `topixim/copyboard`。
 
+后端使用 UnionID v0.6 的 Rust-shaped 语法（`struct`、`field: Type`、`table name: Type { ... }`）声明 schema 和 migration；UnionID revision 固定在 `Cargo.toml`，便于重现验证结果。
+
 ## 开发
 
 ```bash
