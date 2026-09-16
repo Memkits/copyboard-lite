@@ -14,6 +14,10 @@
   :files $ {} $ 'app.lite
     %{} 'FileEntry
       :defs $ {}
+        '*snippets $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defatom *snippets (js-array)
+          :examples $ []
+          :schema $ :: 'Dynamic
         'api-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-base |http://127.0.0.1:11030
           :examples $ []
@@ -36,11 +40,14 @@
                       :headers $ auth-headers
                       :body $ js/JSON.stringify $ js-object (:content content)
                 if (.-ok response)
-                  do
-                    set!
-                      .-value $ unsafe-coerce (js/document.querySelector |#content) JsObject
-                      , |
-                    js-await $ load-snippets!
+                  let
+                      created $ js-await $ .!json response
+                      input $ unsafe-coerce (js/document.querySelector |#content) JsObject
+                    .!unshift @*snippets created
+                    render-snippets! @*snippets
+                    set! (.-value input) |
+                    .!focus input
+                    set-status! "|已保存" |online
                   logout!
               fn (error)
                 do (js/console.error |Failed-to-create-snippet error) (set-status! "|保存失败" |error)
@@ -60,6 +67,7 @@
                 if (.-ok response)
                   let
                       snippets $ js-await $ .!json response
+                    reset! *snippets snippets
                     render-snippets! snippets
                     set-status! "|已连接" |online
                   logout!
@@ -96,7 +104,10 @@
           :examples $ []
           :schema $ :: 'Dynamic
         'logout! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn logout! () (js/localStorage.removeItem |copyboard-lite-token) (js/localStorage.removeItem |copyboard-lite-user) (show-login!)
+          :code $ quote $ defn logout! () (js/localStorage.removeItem |copyboard-lite-token) (js/localStorage.removeItem |copyboard-lite-user)
+            reset! *snippets $ js-array
+            render-snippets! @*snippets
+            show-login!
           :examples $ []
           :schema $ :: 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
@@ -190,9 +201,11 @@
                 login-panel $ unsafe-coerce (js/document.querySelector |#login-panel) JsObject
                 board $ unsafe-coerce (js/document.querySelector |#board) JsObject
                 current-user $ unsafe-coerce (js/document.querySelector |#current-user) JsObject
+                input $ unsafe-coerce (js/document.querySelector |#content) JsObject
               set! (.-hidden login-panel) true
               set! (.-hidden board) false
               set! (.-textContent current-user) username
+              .!focus input
           :examples $ []
           :schema $ :: 'Dynamic
         'show-login! $ %{} 'CodeEntry (:doc |)
@@ -205,25 +218,38 @@
               set-status! "|请登录" |
           :examples $ []
           :schema $ :: 'Dynamic
+        'submit-content! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn submit-content! ()
+            let
+                input $ unsafe-coerce (js/document.querySelector |#content) JsObject
+                content $ unsafe-coerce (.-value input) String
+              when
+                >
+                  unsafe-coerce (.-length content) Number
+                  , 0
+                do (set-status! "|保存中" |online) (create-snippet! content)
+          :examples $ []
+          :schema $ :: 'Dynamic
         'wire-events! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wire-events! ()
             let
                 login-form $ unsafe-coerce (js/document.querySelector |#login-form) JsObject
                 form $ unsafe-coerce (js/document.querySelector |#snippet-form) JsObject
+                input $ unsafe-coerce (js/document.querySelector |#content) JsObject
                 refresh $ unsafe-coerce (js/document.querySelector |#refresh) JsObject
                 logout-button $ unsafe-coerce (js/document.querySelector |#logout) JsObject
               .!addEventListener login-form |submit $ fn (event)
                 do (.!preventDefault event) (login!)
               .!addEventListener form |submit $ fn (event)
-                do (.!preventDefault event)
-                  let
-                      input $ unsafe-coerce (js/document.querySelector |#content) JsObject
-                      content $ unsafe-coerce (.-value input) String
-                    when
-                      >
-                        unsafe-coerce (.-length content) Number
-                        , 0
-                      create-snippet! content
+                do (.!preventDefault event) (submit-content!)
+              .!addEventListener input |keydown $ fn (event)
+                when
+                  and
+                    = |Enter $ unsafe-coerce (.-key event) String
+                    or
+                      unsafe-coerce (.-metaKey event) Bool
+                      unsafe-coerce (.-ctrlKey event) Bool
+                  do (.!preventDefault event) (submit-content!)
               .!addEventListener refresh |click $ fn (_event) (load-snippets!)
               .!addEventListener logout-button |click $ fn (_event) (logout!)
           :examples $ []
