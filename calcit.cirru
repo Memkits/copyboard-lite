@@ -18,6 +18,14 @@
           :code $ quote $ def api-base |http://127.0.0.1:11030
           :examples $ []
           :schema $ :: 'Dynamic
+        'auth-headers $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn auth-headers ()
+            let
+                token $ unsafe-coerce (get-token) String
+              js-object (|Content-Type |application/json)
+                |Authorization $ str (js/decodeURIComponent |Bearer%20) token
+          :examples $ []
+          :schema $ :: 'Dynamic
         'create-snippet! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn create-snippet! (content)
             hint-fn $ {} $ :async true
@@ -25,7 +33,7 @@
               let
                   response $ js-await $ js/fetch (str api-base |/api/snippets)
                     js-object (:method |POST)
-                      :headers $ js-object $ |Content-Type |application/json
+                      :headers $ auth-headers
                       :body $ js/JSON.stringify $ js-object (:content content)
                 if (.-ok response)
                   do
@@ -33,9 +41,13 @@
                       .-value $ unsafe-coerce (js/document.querySelector |#content) JsObject
                       , |
                     js-await $ load-snippets!
-                  raise |Failed-to-create-snippet
+                  logout!
               fn (error)
                 do (js/console.error |Failed-to-create-snippet error) (set-status! "|保存失败" |error)
+          :examples $ []
+          :schema $ :: 'Dynamic
+        'get-token $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn get-token () (js/localStorage.getItem |copyboard-lite-token)
           :examples $ []
           :schema $ :: 'Dynamic
         'load-snippets! $ %{} 'CodeEntry (:doc |)
@@ -44,20 +56,68 @@
             try
               let
                   response $ js-await $ js/fetch (str api-base |/api/snippets)
-                  snippets $ js-await $ .!json response
+                    js-object $ :headers $ auth-headers
                 if (.-ok response)
-                  do (render-snippets! snippets) (set-status! "|已连接" |online)
-                  raise |Failed-to-load-snippets
+                  let
+                      snippets $ js-await $ .!json response
+                    render-snippets! snippets
+                    set-status! "|已连接" |online
+                  logout!
               fn (error)
                 do (js/console.error |Failed-to-load-snippets error) (set-status! "|连接失败" |error)
           :examples $ []
           :schema $ :: 'Dynamic
+        'login! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn login! ()
+            hint-fn $ {} $ :async true
+            try
+              let
+                  username-input $ unsafe-coerce (js/document.querySelector |#username) JsObject
+                  password-input $ unsafe-coerce (js/document.querySelector |#password) JsObject
+                  username $ unsafe-coerce (.-value username-input) String
+                  password $ unsafe-coerce (.-value password-input) String
+                  response $ js-await $ js/fetch (str api-base |/api/auth/login)
+                    js-object (:method |POST)
+                      :headers $ js-object $ |Content-Type |application/json
+                      :body $ js/JSON.stringify $ js-object (:username username) (:password password)
+                  data $ js-await $ .!json response
+                if (.-ok response)
+                  let
+                      token $ unsafe-coerce (.-token data) String
+                      user $ unsafe-coerce (.-username data) String
+                    js/localStorage.setItem |copyboard-lite-token token
+                    js/localStorage.setItem |copyboard-lite-user user
+                    set! (.-value password-input) |
+                    show-board! user
+                    js-await $ load-snippets!
+                  set-status! "|登录失败" |error
+              fn (error)
+                do (js/console.error |Failed-to-login error) (set-status! "|登录失败" |error)
+          :examples $ []
+          :schema $ :: 'Dynamic
+        'logout! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn logout! () (js/localStorage.removeItem |copyboard-lite-token) (js/localStorage.removeItem |copyboard-lite-user) (show-login!)
+          :examples $ []
+          :schema $ :: 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn main! () (wire-events!) (load-snippets!) (println |Copyboard-Lite-started)
+          :code $ quote $ defn main! () (wire-events!)
+            if
+              js-present? $ get-token
+              let
+                  username $ unsafe-coerce (js/localStorage.getItem |copyboard-lite-user) String
+                show-board! username
+                load-snippets!
+              show-login!
+            println |Copyboard-Lite-started
           :examples $ []
           :schema $ :: 'Dynamic
         'reload! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn reload! () (load-snippets!) (println |Copyboard-Lite-reloaded)
+          :code $ quote $ defn reload! ()
+            if
+              js-present? $ get-token
+              load-snippets!
+              show-login!
+            println |Copyboard-Lite-reloaded
           :examples $ []
           :schema $ :: 'Dynamic
         'remove-snippet! $ %{} 'CodeEntry (:doc |)
@@ -66,7 +126,8 @@
             try
               let
                   response $ js-await $ js/fetch (str api-base |/api/snippets/ id)
-                    js-object $ :method |DELETE
+                    js-object (:method |DELETE)
+                      :headers $ auth-headers
                 if (.-ok response)
                   js-await $ load-snippets!
                   raise |Failed-to-remove-snippet
@@ -123,11 +184,36 @@
               set! (.-className target) (str |status | state)
           :examples $ []
           :schema $ :: 'Dynamic
+        'show-board! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn show-board! (username)
+            let
+                login-panel $ unsafe-coerce (js/document.querySelector |#login-panel) JsObject
+                board $ unsafe-coerce (js/document.querySelector |#board) JsObject
+                current-user $ unsafe-coerce (js/document.querySelector |#current-user) JsObject
+              set! (.-hidden login-panel) true
+              set! (.-hidden board) false
+              set! (.-textContent current-user) username
+          :examples $ []
+          :schema $ :: 'Dynamic
+        'show-login! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn show-login! ()
+            let
+                login-panel $ unsafe-coerce (js/document.querySelector |#login-panel) JsObject
+                board $ unsafe-coerce (js/document.querySelector |#board) JsObject
+              set! (.-hidden login-panel) false
+              set! (.-hidden board) true
+              set-status! "|请登录" |
+          :examples $ []
+          :schema $ :: 'Dynamic
         'wire-events! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wire-events! ()
             let
+                login-form $ unsafe-coerce (js/document.querySelector |#login-form) JsObject
                 form $ unsafe-coerce (js/document.querySelector |#snippet-form) JsObject
                 refresh $ unsafe-coerce (js/document.querySelector |#refresh) JsObject
+                logout-button $ unsafe-coerce (js/document.querySelector |#logout) JsObject
+              .!addEventListener login-form |submit $ fn (event)
+                do (.!preventDefault event) (login!)
               .!addEventListener form |submit $ fn (event)
                 do (.!preventDefault event)
                   let
@@ -139,6 +225,7 @@
                         , 0
                       create-snippet! content
               .!addEventListener refresh |click $ fn (_event) (load-snippets!)
+              .!addEventListener logout-button |click $ fn (_event) (logout!)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)

@@ -8,8 +8,11 @@ license = "MIT"
 
 [dependencies]
 axum = "0.8"
+base64 = "0.22"
+hmac = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync"] }
 unionid = { git = "https://github.com/worktools/unionid.git", rev = "b46a22fd2ff1d9797848d23b9ee6b4d5bcf610a8" }
 

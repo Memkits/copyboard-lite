@@ -242,8 +242,11 @@ name = "copyboard-lite"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
+ "hmac",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tower",
  "unionid",
