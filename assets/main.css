@@ -150,12 +150,57 @@ h2 { margin: 16px 0; font-size: 20px; font-weight: 400; }
 .empty { margin: 0; padding: 48px 16px; border-radius: 10px; text-align: center; color: #707070; background: #f7f7f7; }
 
 @media (max-width: 600px) {
-  #app { padding: 0; }
-  .shell { border: 0; border-radius: 0; box-shadow: none; }
-  header, #board, .login-panel { padding: 24px 16px; }
-  header { align-items: flex-start; }
-  .composer-actions { align-items: stretch; flex-direction: column; }
-  .composer-actions button { width: 100%; }
+  body { background: #fff; }
+  #app { padding: 0; background: #fff; }
+  .shell { min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+
+  header {
+    min-height: 64px;
+    padding: 12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+    align-items: center;
+  }
+  header::after { display: none; }
+  h1 { margin: 0; font-size: 24px; font-weight: 400; }
+  .eyebrow { display: none; }
+  .status { padding: 4px 8px; font-size: 11px; }
+
+  #board, .login-panel {
+    max-width: none;
+    padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+  }
+  .login-panel h2 { margin-bottom: 8px; font-size: 18px; }
+  .login-panel p { margin: 0; font-size: 13px; }
+  form { margin: 12px 0 20px; }
+  label { margin: 12px 0 6px; }
+  input { min-height: 44px; }
+  textarea { min-height: 88px; padding: 12px; }
+  form > button { width: 100%; min-height: 48px; margin-top: 16px; }
+
+  .user-bar { padding-bottom: 8px; }
+  .user-bar .ghost, .section-title .ghost { min-height: 40px; padding: 8px 12px; }
+  #snippet-form { margin-top: 12px; }
+  .composer-actions { align-items: stretch; flex-direction: column; margin-top: 8px; }
+  .composer-actions span { display: none; }
+  .composer-actions button { width: 100%; min-height: 48px; }
+
+  .section-title { margin-top: 24px; }
+  .section-title h2 { margin: 12px 0; font-size: 18px; }
+  .snippets { gap: 0; }
+  .snippet {
+    padding: 16px 0 12px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .snippet:hover { border-color: #e1dfdd; box-shadow: none; transform: none; }
+  .snippet p { margin-bottom: 10px; }
+  .snippet-actions { gap: 4px; }
+  .snippet-actions button { min-height: 44px; padding: 10px 12px; }
+  .empty { padding: 32px 12px; border-radius: 0; }
+}
+
+@media (pointer: coarse) {
+  button { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
