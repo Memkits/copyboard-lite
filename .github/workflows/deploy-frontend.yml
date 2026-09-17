@@ -1,0 +1,50 @@
+name: Deploy frontend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and upload frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.1.0
+        with:
+          node-version: 24
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
+      - uses: calcit-lang/setup-calcit@ca701be5a471759e442aa053cd100720bbe1f09f # v1.5.0
+        with:
+          tools: calcit,caps
+      - name: Build frontend
+        run: |
+          caps --ci
+          yarn install --immutable
+          caps verify --toolchain
+          test "$(calcit --version)" = "0.15.1"
+          yarn check
+          yarn compile
+          yarn build
+      - name: Configure deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.rsync_private_key_tc }}
+        run: |
+          install -m 700 -d "$RUNNER_TEMP/copyboard-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/copyboard-ssh/key"
+          chmod 600 "$RUNNER_TEMP/copyboard-ssh/key"
+      - name: Upload frontend
+        run: |
+          ssh -i "$RUNNER_TEMP/copyboard-ssh/key" \
+            -o StrictHostKeyChecking=accept-new \
+            rsync-user@chenyong.life \
+            'mkdir -p /web-assets/repo/Memkits/copyboard-lite'
+          rsync -avz --delete --progress \
+            -e "ssh -i $RUNNER_TEMP/copyboard-ssh/key -o StrictHostKeyChecking=accept-new" \
+            dist/ \
+            rsync-user@chenyong.life:/web-assets/repo/Memkits/copyboard-lite/
