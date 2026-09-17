@@ -45,4 +45,9 @@ jobs:
       - name: Publish GitHub release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release/* --generate-notes --title "Copyboard Lite ${GITHUB_REF_NAME}"
+        run: |
+          release_args=(--generate-notes --title "Copyboard Lite ${GITHUB_REF_NAME}")
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "${GITHUB_REF_NAME}" release/* "${release_args[@]}"
