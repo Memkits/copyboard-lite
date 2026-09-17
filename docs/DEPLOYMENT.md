@@ -54,3 +54,26 @@ browser -- HTTPS --> reverse proxy
 - 提供可复现的 systemd 单元或 Compose 文件，以及备份/恢复脚本。
 
 建议先完成这些项目，再选择具体平台。对于当前规模，单台 Linux 主机配 systemd 和反向代理是最简单、最符合 UnionID 运行边界的方案。
+
+## 从 Actions 获取 Linux 二进制
+
+仓库的 Release workflow 使用 `ubuntu-22.04` 构建 `x86_64-unknown-linux-gnu` release binary，并同时发布压缩包和 SHA-256 文件。创建版本 tag 后自动发布：
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+在目标 VM 上下载并校验：
+
+```bash
+release=v0.1.1
+base="https://github.com/Memkits/copyboard-lite/releases/download/${release}"
+curl -fL -o copyboard-lite.tar.gz "${base}/copyboard-lite-linux-x86_64.tar.gz"
+curl -fL -o copyboard-lite.tar.gz.sha256 "${base}/copyboard-lite-linux-x86_64.tar.gz.sha256"
+sha256sum -c copyboard-lite.tar.gz.sha256
+tar -xzf copyboard-lite.tar.gz
+install -Dm755 copyboard-lite /usr/local/bin/copyboard-lite
+```
+
+构建基线固定为 Ubuntu 22.04，以兼容同代或更新的 glibc。目标机器首次部署前仍应执行 `cat /etc/os-release` 和 `ldd --version`；如果目标 glibc 低于构建环境，不能直接运行该包，应改用更旧的构建基线或增加 musl 构建。Release workflow 的 `workflow_dispatch` 只生成 Actions artifact；只有推送 `v*` tag 才发布 GitHub Release。
