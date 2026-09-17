@@ -39,7 +39,7 @@ const AUTH_MIGRATION: &str = r#"migration m0002_auth {
 }
 "#;
 
-const LIST: &str = "from snippets | filter owner == $owner | sort -created_at";
+const LIST: &str = "from snippets | filter owner == $owner | sort {-created_at, -id}";
 const LATEST_ID: &str = "from snippets | sort -id | take 1";
 const INSERT: &str = "insert snippets $snippet\nreturning";
 const DELETE: &str = "delete snippets | filter id == $id | filter owner == $owner\nreturning id";
@@ -361,7 +361,7 @@ fn verify_token(secret: &[u8], token: &str) -> Option<String> {
 
     let payload = String::from_utf8(URL_SAFE_NO_PAD.decode(encoded).ok()?).ok()?;
     let (username, expires_at) = payload.rsplit_once(':')?;
-    if !valid_username(username) || expires_at.parse::<i64>().ok()? < unix_seconds() {
+    if !valid_username(username) || expires_at.parse::<i64>().ok()? <= unix_seconds() {
         return None;
     }
     Some(username.to_owned())
@@ -425,6 +425,252 @@ mod tests {
         serde_json::from_slice::<LoginResponse>(&body)
             .unwrap()
             .token
+    }
+
+    async fn create_as(service: Router, token: &str, content: &str) -> Snippet {
+        let response = service
+            .oneshot(
+                Request::post("/api/snippets")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::from(
+                        serde_json::json!({"content": content}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    #[test]
+    fn auth_configuration_and_tokens_reject_invalid_input() {
+        let database = temp_database("auth-config");
+        let secret = b"test-secret-at-least-32-bytes-long";
+
+        let empty_users = app_with_auth(&database, BTreeMap::new(), secret.to_vec())
+            .expect_err("empty users must fail");
+        assert_eq!(empty_users.code, "E_AUTH_CONFIG");
+
+        let short_secret = app_with_auth(&database, test_users(), b"too-short".to_vec())
+            .expect_err("short secrets must fail");
+        assert_eq!(short_secret.code, "E_AUTH_CONFIG");
+
+        for invalid in ["alice", "al:password", "alice:", "invalid user:password"] {
+            let error = parse_users(invalid).expect_err("invalid user configuration must fail");
+            assert_eq!(error.code, "E_AUTH_CONFIG", "input: {invalid}");
+        }
+
+        let future = issue_token(secret, "alice", unix_seconds() + 60);
+        assert_eq!(verify_token(secret, &future).as_deref(), Some("alice"));
+        assert!(verify_token(secret, &format!("{future}x")).is_none());
+
+        let expired = issue_token(secret, "alice", unix_seconds());
+        assert!(verify_token(secret, &expired).is_none());
+        assert!(!database.exists());
+    }
+
+    #[tokio::test]
+    async fn health_and_auth_failures_are_cors_safe() {
+        let database = temp_database("auth-http");
+        let secret = b"test-secret-at-least-32-bytes-long".to_vec();
+        let service = app_with_auth(&database, test_users(), secret.clone()).unwrap();
+
+        let health = service
+            .clone()
+            .oneshot(Request::get("/health").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(health.status(), StatusCode::OK);
+        assert_eq!(health.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+        let body = to_bytes(health.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({"ok": true, "database": "unionid"})
+        );
+
+        for credentials in [
+            serde_json::json!({"username": "alice", "password": "wrong"}),
+            serde_json::json!({"username": "unknown", "password": "alice-pass"}),
+        ] {
+            let response = service
+                .clone()
+                .oneshot(
+                    Request::post("/api/auth/login")
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(credentials.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+            assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+        }
+
+        let unauthorized_tokens = [
+            "not-a-token".to_owned(),
+            issue_token(&secret, "alice", unix_seconds()),
+            issue_token(&secret, "charlie", unix_seconds() + 60),
+        ];
+        for token in unauthorized_tokens {
+            let response = service
+                .clone()
+                .oneshot(
+                    Request::get("/api/snippets")
+                        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        }
+
+        drop(service);
+        let _ = std::fs::remove_file(database);
+    }
+
+    #[tokio::test]
+    async fn snippet_input_is_trimmed_validated_and_stably_sorted() {
+        let database = temp_database("validation");
+        let service = app_with_auth(
+            &database,
+            test_users(),
+            b"test-secret-at-least-32-bytes-long".to_vec(),
+        )
+        .unwrap();
+        let token = login_as(service.clone(), "alice", "alice-pass").await;
+
+        let blank = service
+            .clone()
+            .oneshot(
+                Request::post("/api/snippets")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::from(r#"{"content":"  \n\t  "}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(blank.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(blank.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+
+        let first = create_as(service.clone(), &token, "  first  \n").await;
+        assert_eq!(first.content, "first");
+        let second = create_as(service.clone(), &token, "second").await;
+        assert!(second.id > first.id);
+
+        let response = service
+            .clone()
+            .oneshot(
+                Request::get("/api/snippets")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let snippets: Vec<Snippet> = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            snippets
+                .iter()
+                .map(|snippet| snippet.id)
+                .collect::<Vec<_>>(),
+            vec![second.id, first.id]
+        );
+
+        drop(service);
+        let _ = std::fs::remove_file(database);
+    }
+
+    #[tokio::test]
+    async fn concurrent_creates_keep_ids_unique_and_data_isolated() {
+        let database = temp_database("concurrent");
+        let service = app_with_auth(
+            &database,
+            test_users(),
+            b"test-secret-at-least-32-bytes-long".to_vec(),
+        )
+        .unwrap();
+        let alice_token = login_as(service.clone(), "alice", "alice-pass").await;
+        let bob_token = login_as(service.clone(), "bob", "bob-pass").await;
+
+        let mut tasks = Vec::new();
+        for index in 0..12 {
+            let service = service.clone();
+            let token = alice_token.clone();
+            tasks.push(tokio::spawn(async move {
+                create_as(service, &token, &format!("item-{index}")).await
+            }));
+        }
+
+        let mut ids = std::collections::BTreeSet::new();
+        for task in tasks {
+            let snippet = task.await.unwrap();
+            assert_eq!(snippet.owner, "alice");
+            assert!(ids.insert(snippet.id), "duplicate id: {}", snippet.id);
+        }
+        assert_eq!(ids.len(), 12);
+
+        let bob_response = service
+            .clone()
+            .oneshot(
+                Request::get("/api/snippets")
+                    .header(header::AUTHORIZATION, format!("Bearer {bob_token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(bob_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(
+            serde_json::from_slice::<Vec<Snippet>>(&body)
+                .unwrap()
+                .is_empty()
+        );
+
+        drop(service);
+        let _ = std::fs::remove_file(database);
+    }
+
+    #[tokio::test]
+    async fn reopening_database_continues_the_id_sequence() {
+        let database = temp_database("id-reopen");
+        let secret = b"test-secret-at-least-32-bytes-long".to_vec();
+        let service = app_with_auth(&database, test_users(), secret.clone()).unwrap();
+        let token = login_as(service.clone(), "alice", "alice-pass").await;
+        let before_restart = create_as(service.clone(), &token, "before restart").await;
+        drop(service);
+
+        let reopened = app_with_auth(&database, test_users(), secret).unwrap();
+        let token = login_as(reopened.clone(), "alice", "alice-pass").await;
+        let after_restart = create_as(reopened.clone(), &token, "after restart").await;
+        assert!(after_restart.id > before_restart.id);
+
+        let response = reopened
+            .clone()
+            .oneshot(
+                Request::get("/api/snippets")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let snippets: Vec<Snippet> = serde_json::from_slice(&body).unwrap();
+        assert_eq!(snippets.len(), 2);
+        assert_eq!(snippets[0].id, after_restart.id);
+        assert_eq!(snippets[1].id, before_restart.id);
+
+        drop(reopened);
+        let _ = std::fs::remove_file(database);
     }
 
     #[tokio::test]
@@ -605,6 +851,16 @@ insert snippets {id: 1, content: "old shared row", created_at: 1}
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let snippets: Vec<Snippet> = serde_json::from_slice(&body).unwrap();
         assert!(snippets.is_empty());
+
+        let mut migrated = Engine::open_redb(&database).unwrap();
+        let legacy_rows = migrated
+            .execute("from snippets | filter owner == \"legacy\"")
+            .typed_rows::<Snippet>()
+            .unwrap();
+        assert_eq!(legacy_rows.len(), 1);
+        assert_eq!(legacy_rows[0].content, "old shared row");
+        assert_eq!(legacy_rows[0].owner, "legacy");
+        drop(migrated);
 
         let _ = std::fs::remove_file(database);
     }
