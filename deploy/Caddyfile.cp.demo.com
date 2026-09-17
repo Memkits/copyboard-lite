@@ -1,5 +1,7 @@
-cp.demo.com {
+https://cp.chenyong.life {
     encode gzip
+
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
     reverse_proxy 127.0.0.1:12000 {
         header_up Host {http.request.host}
