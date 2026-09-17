@@ -1,6 +1,19 @@
 name: Deploy frontend
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-frontend.yml"
+      - "assets/**"
+      - "calcit-src/**"
+      - "calcit.cirru"
+      - "client.mjs"
+      - "deps.cirru"
+      - "index.html"
+      - "package.json"
+      - "yarn.lock"
   workflow_dispatch:
 
 permissions:
@@ -32,6 +45,7 @@ jobs:
           yarn compile
           yarn build
       - name: Configure deploy key
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           DEPLOY_KEY: ${{ secrets.rsync_private_key_tc }}
         run: |
@@ -39,6 +53,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/copyboard-ssh/key"
           chmod 600 "$RUNNER_TEMP/copyboard-ssh/key"
       - name: Upload frontend
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           ssh -i "$RUNNER_TEMP/copyboard-ssh/key" \
             -o StrictHostKeyChecking=accept-new \
