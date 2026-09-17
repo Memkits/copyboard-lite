@@ -25,6 +25,23 @@ jobs:
           sha256sum release/copyboard-lite-linux-x86_64.tar.gz > release/copyboard-lite-linux-x86_64.tar.gz.sha256
           file target/release/copyboard-lite
           ldd target/release/copyboard-lite
+      - name: Configure deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.rsync_private_key_tc }}
+        run: |
+          install -m 700 -d "$RUNNER_TEMP/copyboard-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/copyboard-ssh/key"
+          chmod 600 "$RUNNER_TEMP/copyboard-ssh/key"
+      - name: Upload binary to deployment server
+        run: |
+          ssh -i "$RUNNER_TEMP/copyboard-ssh/key" \
+            -o StrictHostKeyChecking=accept-new \
+            rsync-user@chenyong.life \
+            'mkdir -p /servers/copyboard-lite'
+          rsync -avz --progress \
+            -e "ssh -i $RUNNER_TEMP/copyboard-ssh/key -o StrictHostKeyChecking=accept-new" \
+            release/ \
+            rsync-user@chenyong.life:/servers/copyboard-lite/
       - name: Publish GitHub release assets
         env:
           GH_TOKEN: ${{ github.token }}
