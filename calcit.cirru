@@ -19,7 +19,16 @@
           :examples $ []
           :schema $ :: 'Dynamic
         'api-base $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def api-base |http://127.0.0.1:11030
+          :code $ quote $ def api-base
+            let
+                browser-location $ unsafe-coerce js/location JsObject
+                hostname $ unsafe-coerce (.-hostname browser-location) String
+                query $ new js/URLSearchParams $ .-search browser-location
+                environment $ unsafe-coerce (.!get query |env) String
+                local-host? $ or (= hostname |localhost) (= hostname |127.0.0.1)
+              if
+                and local-host? $ not= environment |prod
+                , |http://127.0.0.1:11030 |https://cp.chenyong.life
           :examples $ []
           :schema $ :: 'Dynamic
         'auth-headers $ %{} 'CodeEntry (:doc |)
