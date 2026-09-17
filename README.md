@@ -36,3 +36,5 @@ cargo test
 测试覆盖登录、未授权拒绝、用户间读写隔离、CORS 和 UnionID 数据库重开后的持久化。
 
 部署边界、方案对比、备份恢复和上线前缺口见 [部署建议](docs/DEPLOYMENT.md)。
+
+Linux x86_64 发版二进制由 Actions 的 `v*` tag workflow 生成，下载、校验和安装步骤见 [部署建议](docs/DEPLOYMENT.md#从-actions-获取-linux-二进制)。
