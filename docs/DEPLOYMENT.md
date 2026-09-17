@@ -76,4 +76,4 @@ tar -xzf copyboard-lite.tar.gz
 install -Dm755 copyboard-lite /usr/local/bin/copyboard-lite
 ```
 
-构建基线固定为 Ubuntu 22.04，以兼容同代或更新的 glibc。目标机器首次部署前仍应执行 `cat /etc/os-release` 和 `ldd --version`；如果目标 glibc 低于构建环境，不能直接运行该包，应改用更旧的构建基线或增加 musl 构建。Release workflow 的 `workflow_dispatch` 只生成 Actions artifact；只有推送 `v*` tag 才发布 GitHub Release。
+构建基线固定为 Ubuntu 22.04，以兼容同代或更新的 glibc。目标机器首次部署前仍应执行 `cat /etc/os-release` 和 `ldd --version`；如果目标 glibc 低于构建环境，不能直接运行该包，应改用更旧的构建基线或增加 musl 构建。Release workflow 只响应 `v*` tag push，不会在 PR 或普通分支构建和保存二进制；压缩包和校验文件作为 GitHub Release assets 保存。
