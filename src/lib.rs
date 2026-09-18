@@ -13,10 +13,37 @@ use axum::{Json, Router};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use hmac::{Hmac, Mac};
-use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tokio::sync::Mutex;
 use unionid::{Engine, Value};
+
+unionid_query::queries! {
+    schema "schema/copyboard.unid"
+
+    query list_snippets_query {
+        from snippets
+        filter owner == $owner
+        sort {-created_at, -id}
+    }
+
+    query latest_snippet_query {
+        from snippets
+        sort -id
+        take 1
+    }
+
+    query insert_snippet_query {
+        insert snippets $snippet
+        returning
+    }
+
+    query delete_snippet_query {
+        delete snippets
+        filter id == $id
+        filter owner == $owner
+        returning id
+    }
+}
 
 const INITIAL_SCHEMA: &str = r#"migration m0001_initial {
   add struct Snippet {
@@ -38,35 +65,43 @@ const AUTH_MIGRATION: &str = r#"migration m0002_auth {
   add index snippets.owner
 }
 "#;
+const DECLARATIVE_SCHEMA: &str = include_str!("../schema/copyboard.unid");
+const PRE_AUTH_SCHEMA: &str = r#"struct Snippet {
+  id: int
+  content: text
+  created_at: int
+}
+table snippets: Snippet {
+  key id
+}
+create index snippets (created_at)
+"#;
 
-const LIST: &str = "from snippets | filter owner == $owner | sort {-created_at, -id}";
-const LATEST_ID: &str = "from snippets | sort -id | take 1";
-const INSERT: &str = "insert snippets $snippet\nreturning";
-const DELETE: &str = "delete snippets | filter id == $id | filter owner == $owner\nreturning id";
+// Databases upgraded from the pre-auth schema have migration-established IDs
+// and revision 2, so v0.9's declarative-schema macro cannot bind them safely.
+// Keep the runtime path only for those existing databases.
+const LEGACY_LIST: &str = "from snippets | filter owner == $owner | sort {-created_at, -id}";
+const LEGACY_LATEST_ID: &str = "from snippets | sort -id | take 1";
+const LEGACY_INSERT: &str = "insert snippets $snippet\nreturning";
+const LEGACY_DELETE: &str =
+    "delete snippets | filter id == $id | filter owner == $owner\nreturning id";
+
 const TOKEN_TTL_SECONDS: i64 = 24 * 60 * 60;
 
 type HmacSha256 = Hmac<Sha256>;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Snippet {
-    pub id: i64,
-    pub content: String,
-    pub created_at: i64,
-    pub owner: String,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 pub struct NewSnippet {
     pub content: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct LoginResponse {
     pub token: String,
     pub username: String,
@@ -75,12 +110,13 @@ pub struct LoginResponse {
 #[derive(Clone)]
 pub struct AppState {
     engine: Arc<Mutex<Engine>>,
+    typed_queries: bool,
     ids: Arc<AtomicI64>,
     users: Arc<BTreeMap<String, String>>,
     secret: Arc<Vec<u8>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, serde::Serialize)]
 struct ApiError {
     error: String,
 }
@@ -123,15 +159,32 @@ pub fn app_with_auth(
         }
     }
 
+    let typed_queries = macro_schema_matches(&engine);
+    if !typed_queries && !logical_schema_matches(&engine)? {
+        return Err(unionid::Error::new(
+            "E_SCHEMA_CHANGED",
+            "database schema does not match the Copyboard schema",
+        ));
+    }
     let now = unix_millis();
-    let next_id = engine
-        .execute(LATEST_ID)
-        .typed_rows::<Snippet>()?
-        .into_iter()
-        .next()
-        .map_or(now, |snippet| now.max(snippet.id.saturating_add(1)));
+    let latest_id = if typed_queries {
+        latest_snippet_query::latest_snippet_query(
+            &mut engine,
+            latest_snippet_query::LatestSnippetQueryParams,
+        )?
+        .map(|snippet| snippet.id)
+    } else {
+        engine
+            .execute(LEGACY_LATEST_ID)
+            .typed_rows::<Snippet>()?
+            .into_iter()
+            .next()
+            .map(|snippet| snippet.id)
+    };
+    let next_id = latest_id.map_or(now, |id| now.max(id.saturating_add(1)));
     let state = AppState {
         engine: Arc::new(Mutex::new(engine)),
+        typed_queries,
         ids: Arc::new(AtomicI64::new(next_id)),
         users: Arc::new(users),
         secret: Arc::new(secret),
@@ -186,12 +239,23 @@ async fn list_snippets(
 ) -> Result<Json<Vec<Snippet>>, (StatusCode, Json<ApiError>)> {
     let owner = authorize(&headers, &state)?;
     let mut engine = state.engine.lock().await;
-    let response =
-        engine.execute_with_params(LIST, BTreeMap::from([("owner".into(), Value::Text(owner))]));
-    response
-        .typed_rows::<Snippet>()
-        .map(Json)
+    if state.typed_queries {
+        list_snippets_query::list_snippets_query(
+            &mut engine,
+            list_snippets_query::ListSnippetsQueryParams { owner },
+        )
+        .map(|rows| Json(rows.into_iter().map(Snippet::from).collect()))
         .map_err(internal_error)
+    } else {
+        engine
+            .execute_with_params(
+                LEGACY_LIST,
+                BTreeMap::from([("owner".into(), Value::Text(owner))]),
+            )
+            .typed_rows::<Snippet>()
+            .map(Json)
+            .map_err(internal_error)
+    }
 }
 
 async fn create_snippet(
@@ -216,15 +280,26 @@ async fn create_snippet(
         created_at: unix_millis(),
         owner,
     };
-    let value = Value::from_serde(&snippet).map_err(internal_error)?;
     let mut engine = state.engine.lock().await;
-    let response = engine.execute_with_params(INSERT, BTreeMap::from([("snippet".into(), value)]));
-    let created = response
-        .typed_rows::<Snippet>()
-        .map_err(internal_error)?
-        .into_iter()
-        .next()
-        .ok_or_else(|| internal_error("UnionID returned no inserted row"))?;
+    let created = if state.typed_queries {
+        let output = insert_snippet_query::insert_snippet_query(
+            &mut engine,
+            insert_snippet_query::InsertSnippetQueryParams {
+                snippet: snippet.clone(),
+            },
+        )
+        .map_err(internal_error)?;
+        Snippet::from(output.rows)
+    } else {
+        let value = Value::from_serde(&snippet).map_err(internal_error)?;
+        engine
+            .execute_with_params(LEGACY_INSERT, BTreeMap::from([("snippet".into(), value)]))
+            .typed_rows::<Snippet>()
+            .map_err(internal_error)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| internal_error("UnionID returned no inserted row"))?
+    };
     Ok((StatusCode::CREATED, Json(created)))
 }
 
@@ -235,24 +310,89 @@ async fn delete_snippet(
 ) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
     let owner = authorize(&headers, &state)?;
     let mut engine = state.engine.lock().await;
-    let response = engine.execute_with_params(
-        DELETE,
-        BTreeMap::from([
-            ("id".into(), Value::Int(id)),
-            ("owner".into(), Value::Text(owner)),
-        ]),
-    );
-    if !response.ok {
-        return Err(internal_error(response.message));
-    }
-    match response.affected_rows {
-        Some(0) => Err((
+    let affected_rows = if state.typed_queries {
+        delete_snippet_query::delete_snippet_query(
+            &mut engine,
+            delete_snippet_query::DeleteSnippetQueryParams { id, owner },
+        )
+        .map_err(internal_error)?
+        .affected_rows
+    } else {
+        let response = engine.execute_with_params(
+            LEGACY_DELETE,
+            BTreeMap::from([
+                ("id".into(), Value::Int(id)),
+                ("owner".into(), Value::Text(owner)),
+            ]),
+        );
+        if !response.ok {
+            return Err(internal_error(response.message));
+        }
+        response.affected_rows.unwrap_or_default()
+    };
+    match affected_rows {
+        0 => Err((
             StatusCode::NOT_FOUND,
             Json(ApiError {
                 error: "snippet not found".into(),
             }),
         )),
         _ => Ok(StatusCode::NO_CONTENT),
+    }
+}
+
+fn macro_schema_matches(engine: &Engine) -> bool {
+    let schema = engine.schema_info();
+    schema.revision == list_snippets_query::LIST_SNIPPETS_QUERY_SCHEMA_REVISION
+        && schema.hash == list_snippets_query::LIST_SNIPPETS_QUERY_SCHEMA_HASH
+}
+
+fn logical_schema_matches(engine: &Engine) -> Result<bool, unionid::Error> {
+    let mut expected = Engine::memory();
+    let response = expected.execute(DECLARATIVE_SCHEMA);
+    if !response.ok {
+        return Err(response.error.unwrap_or_else(|| {
+            unionid::Error::new("E_SCHEMA", "failed to load the embedded Copyboard schema")
+        }));
+    }
+    if engine.schema() == expected.schema() {
+        return Ok(true);
+    }
+
+    let mut migrated = Engine::memory();
+    for source in [PRE_AUTH_SCHEMA, AUTH_MIGRATION] {
+        let response = migrated.execute(source);
+        if !response.ok {
+            return Err(response.error.unwrap_or_else(|| {
+                unionid::Error::new(
+                    "E_SCHEMA",
+                    "failed to load a Copyboard compatibility schema",
+                )
+            }));
+        }
+    }
+    Ok(engine.schema() == migrated.schema())
+}
+
+impl From<list_snippets_query::ListSnippetsQueryRow> for Snippet {
+    fn from(row: list_snippets_query::ListSnippetsQueryRow) -> Self {
+        Self {
+            id: row.id,
+            content: row.content,
+            created_at: row.created_at,
+            owner: row.owner,
+        }
+    }
+}
+
+impl From<insert_snippet_query::InsertSnippetQueryRow> for Snippet {
+    fn from(row: insert_snippet_query::InsertSnippetQueryRow) -> Self {
+        Self {
+            id: row.id,
+            content: row.content,
+            created_at: row.created_at,
+            owner: row.owner,
+        }
     }
 }
 
@@ -861,6 +1001,33 @@ insert snippets {id: 1, content: "old shared row", created_at: 1}
         assert_eq!(legacy_rows[0].content, "old shared row");
         assert_eq!(legacy_rows[0].owner, "legacy");
         drop(migrated);
+
+        let _ = std::fs::remove_file(database);
+    }
+
+    #[test]
+    fn unexpected_schema_drift_is_rejected() {
+        let database = temp_database("schema-drift");
+        let service = app_with_auth(
+            &database,
+            test_users(),
+            b"test-secret-at-least-32-bytes-long".to_vec(),
+        )
+        .unwrap();
+        drop(service);
+
+        let mut engine = Engine::open_redb(&database).unwrap();
+        let changed = engine.execute("type Unexpected = text");
+        assert!(changed.ok, "{}", changed.message);
+        drop(engine);
+
+        let error = app_with_auth(
+            &database,
+            test_users(),
+            b"test-secret-at-least-32-bytes-long".to_vec(),
+        )
+        .expect_err("schema drift must fail closed");
+        assert_eq!(error.code, "E_SCHEMA_CHANGED");
 
         let _ = std::fs::remove_file(database);
     }

@@ -1,0 +1,11 @@
+type Snippet =
+  id int
+  content text
+  created_at int
+  owner text
+
+table snippets Snippet
+  key id
+
+create index snippets (created_at)
+create index snippets (owner)
