@@ -13,6 +13,7 @@ use axum::{Json, Router};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use hmac::{Hmac, Mac};
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tokio::sync::Mutex;
 use unionid::{Engine, Value};
@@ -90,18 +91,18 @@ const TOKEN_TTL_SECONDS: i64 = 24 * 60 * 60;
 
 type HmacSha256 = Hmac<Sha256>;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct NewSnippet {
     pub content: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoginResponse {
     pub token: String,
     pub username: String,
@@ -116,7 +117,7 @@ pub struct AppState {
     secret: Arc<Vec<u8>>,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Serialize)]
 struct ApiError {
     error: String,
 }
