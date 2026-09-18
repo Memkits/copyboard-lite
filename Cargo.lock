@@ -980,9 +980,9 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unionid"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03b62f1ddac3f5b6a564203bbe15c326caa2feaaacf1646fa245e26c87a76948"
+checksum = "2b444632fef9b9cc3587bcaa7018b84377c4c0883b42dc0c54edd09a69423c2b"
 dependencies = [
  "base64",
  "clap",
@@ -1000,9 +1000,9 @@ dependencies = [
 
 [[package]]
 name = "unionid-query"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3487ece7f9a59f27a8e28542d1f18db24f3d2a96b71312396ff84bd692130a5"
+checksum = "64017becb47e8e49044946253627bc84a5588842b44c3f5605eb2cc49e076239"
 dependencies = [
  "proc-macro2",
  "quote",
