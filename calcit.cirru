@@ -5,7 +5,7 @@
   :entries $ {}
     :default $ {} (:description |) (:init-fn 'app.lite/main!) (:mode :native) (:reload-fn 'app.lite/reload!)
       :feature-policy $ {}
-      :modules $ []
+      :modules $ [] |js-ffi/
       :type-slots $ {}
     :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
       :feature-policy $ {}
@@ -21,10 +21,10 @@
         'api-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-base
             let
-                browser-location $ unsafe-coerce js/location JsObject
-                hostname $ unsafe-coerce (.-hostname browser-location) String
-                query $ new js/URLSearchParams $ .-search browser-location
-                environment $ unsafe-coerce (.!get query |env) String
+                location $ browser/location-snapshot
+                hostname $ location :hostname
+                query $ shared/search-params-create $ location :search
+                environment $ option:unwrap-or (shared/search-params-get query |env) |
                 local-host? $ or (= hostname |localhost) (= hostname |127.0.0.1)
               if
                 and local-host? $ not= environment |prod
@@ -34,9 +34,11 @@
         'auth-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn auth-headers ()
             let
-                token $ unsafe-coerce (get-token) String
-              js-object (|Content-Type |application/json)
-                |Authorization $ str (js/decodeURIComponent |Bearer%20) token
+                token $ option:unwrap-or (get-token) |
+                headers $ shared/headers-create
+              shared/headers-set! headers |Content-Type |application/json
+              shared/headers-set! headers |Authorization $ str (shared/decode-uri-component |Bearer%20) token
+              , headers
           :examples $ []
           :schema $ :: 'Dynamic
         'create-snippet! $ %{} 'CodeEntry (:doc |)
@@ -44,26 +46,31 @@
             hint-fn $ {} $ :async true
             try
               let
-                  response $ js-await $ js/fetch (str api-base |/api/snippets)
-                    js-object (:method |POST)
-                      :headers $ auth-headers
-                      :body $ js/JSON.stringify $ js-object (:content content)
-                if (.-ok response)
-                  let
-                      created $ js-await $ .!json response
-                      input $ unsafe-coerce (js/document.querySelector |#content) JsObject
-                    .!unshift @*snippets created
-                    render-snippets! @*snippets
-                    set! (.-value input) |
-                    .!focus input
-                    set-status! "|已保存" |online
-                  logout!
+                  headers $ auth-headers
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :post) headers
+                    %some $ contract/expect-string |body $ js/JSON.stringify
+                      js-object $ :content content
+                match request
+                  (:ok response)
+                    let
+                        created-result $ js-await $ shared/response-json response
+                      match created-result
+                        (:ok created)
+                          let
+                              input $ option:unwrap $ browser/query-selector |#content
+                            .!unshift @*snippets created
+                            render-snippets! @*snippets
+                            browser/element-set-value! input |
+                            browser/element-focus! input
+                            set-status! "|已保存" |online
+                        (:err error) (raise error)
+                  (:err error) (raise error)
               fn (error)
-                do (js/console.error |Failed-to-create-snippet error) (set-status! "|保存失败" |error)
+                do (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
           :examples $ []
           :schema $ :: 'Dynamic
         'get-token $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn get-token () (js/localStorage.getItem |copyboard-lite-token)
+          :code $ quote $ defn get-token () (browser/storage-get |copyboard-lite-token)
           :examples $ []
           :schema $ :: 'Dynamic
         'load-snippets! $ %{} 'CodeEntry (:doc |)
@@ -71,17 +78,19 @@
             hint-fn $ {} $ :async true
             try
               let
-                  response $ js-await $ js/fetch (str api-base |/api/snippets)
-                    js-object $ :headers $ auth-headers
-                if (.-ok response)
-                  let
-                      snippets $ js-await $ .!json response
-                    reset! *snippets snippets
-                    render-snippets! snippets
-                    set-status! "|已连接" |online
-                  logout!
+                  headers $ auth-headers
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers (%none)
+                match request
+                  (:ok response)
+                    let
+                        snippets-result $ js-await $ shared/response-json response
+                      match snippets-result
+                        (:ok snippets)
+                          do (reset! *snippets snippets) (render-snippets! snippets) (set-status! "|已连接" |online)
+                        (:err error) (raise error)
+                  (:err error) (raise error)
               fn (error)
-                do (js/console.error |Failed-to-load-snippets error) (set-status! "|连接失败" |error)
+                do (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
           :examples $ []
           :schema $ :: 'Dynamic
         'login! $ %{} 'CodeEntry (:doc |)
@@ -89,31 +98,42 @@
             hint-fn $ {} $ :async true
             try
               let
-                  username-input $ unsafe-coerce (js/document.querySelector |#username) JsObject
-                  password-input $ unsafe-coerce (js/document.querySelector |#password) JsObject
-                  username $ unsafe-coerce (.-value username-input) String
-                  password $ unsafe-coerce (.-value password-input) String
-                  response $ js-await $ js/fetch (str api-base |/api/auth/login)
-                    js-object (:method |POST)
-                      :headers $ js-object $ |Content-Type |application/json
-                      :body $ js/JSON.stringify $ js-object (:username username) (:password password)
-                  data $ js-await $ .!json response
-                if (.-ok response)
-                  let
-                      token $ unsafe-coerce (.-token data) String
-                      user $ unsafe-coerce (.-username data) String
-                    js/localStorage.setItem |copyboard-lite-token token
-                    js/localStorage.setItem |copyboard-lite-user user
-                    set! (.-value password-input) |
-                    show-board! user
-                    js-await $ load-snippets!
-                  set-status! "|登录失败" |error
+                  username-input $ option:unwrap $ browser/query-selector |#username
+                  password-input $ option:unwrap $ browser/query-selector |#password
+                  username $ option:unwrap-or
+                    js-nullish->option $ username-input :value
+                    , |
+                  password $ option:unwrap-or
+                    js-nullish->option $ password-input :value
+                    , |
+                  headers $ shared/headers-create
+                shared/headers-set! headers |Content-Type |application/json
+                let
+                    request $ js-await $ shared/fetch-request (str api-base |/api/auth/login) (%:: shared/HttpMethod :post) headers
+                      %some $ contract/expect-string |body $ js/JSON.stringify
+                        js-object (:username username) (:password password)
+                  match request
+                    (:ok response)
+                      let
+                          data-result $ js-await $ shared/response-json response
+                        match data-result
+                          (:ok data)
+                            let
+                                token $ contract/expect-string |login.token $ contract/object-field |login data |token
+                                user $ contract/expect-string |login.username $ contract/object-field |login data |username
+                              browser/storage-set! |copyboard-lite-token token
+                              browser/storage-set! |copyboard-lite-user user
+                              browser/element-set-value! password-input |
+                              show-board! user
+                              js-await $ load-snippets!
+                          (:err error) (raise error)
+                    (:err error) (raise error)
               fn (error)
-                do (js/console.error |Failed-to-login error) (set-status! "|登录失败" |error)
+                do (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
           :examples $ []
           :schema $ :: 'Dynamic
         'logout! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn logout! () (js/localStorage.removeItem |copyboard-lite-token) (js/localStorage.removeItem |copyboard-lite-user)
+          :code $ quote $ defn logout! () (browser/storage-remove! |copyboard-lite-token) (browser/storage-remove! |copyboard-lite-user)
             reset! *snippets $ js-array
             render-snippets! @*snippets
             show-login!
@@ -122,19 +142,20 @@
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (wire-events!)
             if
-              js-present? $ get-token
+              option:some? $ get-token
               let
-                  username $ unsafe-coerce (js/localStorage.getItem |copyboard-lite-user) String
+                  username $ option:unwrap-or (browser/storage-get |copyboard-lite-user) |
                 show-board! username
                 load-snippets!
               show-login!
             println |Copyboard-Lite-started
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if
-              js-present? $ get-token
+              option:some? $ get-token
               load-snippets!
               show-login!
             println |Copyboard-Lite-reloaded
@@ -145,123 +166,119 @@
             hint-fn $ {} $ :async true
             try
               let
-                  response $ js-await $ js/fetch (str api-base |/api/snippets/ id)
-                    js-object (:method |DELETE)
-                      :headers $ auth-headers
-                if (.-ok response)
-                  js-await $ load-snippets!
-                  raise |Failed-to-remove-snippet
+                  headers $ auth-headers
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers (%none)
+                match request
+                  (:ok response)
+                    js-await $ load-snippets!
+                  (:err error) (raise error)
               fn (error)
-                do (js/console.error |Failed-to-remove-snippet error) (set-status! "|删除失败" |error)
+                do (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
           :examples $ []
           :schema $ :: 'Dynamic
         'render-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-snippets! (snippets)
             let
-                container $ unsafe-coerce (js/document.querySelector |#snippets) JsObject
-                empty-node $ unsafe-coerce (js/document.querySelector |#empty) JsObject
-              set! (.-innerHTML container) |
-              set! (.-hidden empty-node)
-                not= 0 $ unsafe-coerce (.-length snippets) Number
+                container $ option:unwrap $ browser/query-selector |#snippets
+                empty-node $ option:unwrap $ browser/query-selector |#empty
+              browser/element-set-inner-html! container |
+              browser/element-set-hidden! empty-node $ not= 0 $ unsafe-coerce (.-length snippets) Number
               .!forEach snippets $ fn (raw-snippet & _index)
                 let
                     snippet $ unsafe-coerce raw-snippet JsObject
                     content $ unsafe-coerce (.-content snippet) String
                     id $ unsafe-coerce (.-id snippet) Number
                     created-at $ unsafe-coerce (.-created_at snippet) Number
-                    card $ unsafe-coerce (js/document.createElement |article) JsObject
-                    text-node $ unsafe-coerce (js/document.createElement |p) JsObject
-                    actions $ unsafe-coerce (js/document.createElement |div) JsObject
-                    time-node $ unsafe-coerce (js/document.createElement |time) JsObject
-                    copy-button $ unsafe-coerce (js/document.createElement |button) JsObject
-                    remove-button $ unsafe-coerce (js/document.createElement |button) JsObject
-                  set! (.-className card) |snippet
-                  set! (.-textContent text-node) content
-                  set! (.-className actions) |snippet-actions
-                  set! (.-textContent time-node)
-                    .!toLocaleString $ new js/Date created-at
-                  set! (.-textContent copy-button) "|复制"
-                  set! (.-textContent remove-button) "|删除"
-                  set! (.-className remove-button) |remove
-                  .!addEventListener copy-button |click $ fn (_event)
-                    let
-                        clipboard $ unsafe-coerce js/navigator.clipboard JsObject
-                      .!writeText clipboard content
-                  .!addEventListener remove-button |click $ fn (_event) (remove-snippet! id)
-                  .!appendChild actions time-node
-                  .!appendChild actions copy-button
-                  .!appendChild actions remove-button
-                  .!appendChild card text-node
-                  .!appendChild card actions
-                  .!appendChild container card
+                    card $ browser/create-element |article
+                    text-node $ browser/create-element |p
+                    actions $ browser/create-element |div
+                    time-node $ browser/create-element |time
+                    copy-button $ browser/create-element |button
+                    remove-button $ browser/create-element |button
+                  browser/element-set-class-name! card |snippet
+                  browser/element-set-text-content! text-node content
+                  browser/element-set-class-name! actions |snippet-actions
+                  browser/element-set-text-content! time-node $ shared/date-local-string $ shared/date-from-ms created-at
+                  browser/element-set-text-content! copy-button "|复制"
+                  browser/element-set-text-content! remove-button "|删除"
+                  browser/element-set-class-name! remove-button |remove
+                  browser/element-add-event-listener! copy-button |click $ fn (_event) (browser/clipboard-write-text! content)
+                  browser/element-add-event-listener! remove-button |click $ fn (_event) (remove-snippet! id)
+                  browser/append-child! actions time-node
+                  browser/append-child! actions copy-button
+                  browser/append-child! actions remove-button
+                  browser/append-child! card text-node
+                  browser/append-child! card actions
+                  browser/append-child! container card
           :examples $ []
           :schema $ :: 'Dynamic
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label state)
             let
-                target $ unsafe-coerce (js/document.querySelector |#status) JsObject
-              set! (.-textContent target) label
-              set! (.-className target) (str |status | state)
+                target $ option:unwrap $ browser/query-selector |#status
+              browser/element-set-text-content! target label
+              browser/element-set-class-name! target $ str |status | state
           :examples $ []
           :schema $ :: 'Dynamic
         'show-board! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-board! (username)
             let
-                login-panel $ unsafe-coerce (js/document.querySelector |#login-panel) JsObject
-                board $ unsafe-coerce (js/document.querySelector |#board) JsObject
-                current-user $ unsafe-coerce (js/document.querySelector |#current-user) JsObject
-                input $ unsafe-coerce (js/document.querySelector |#content) JsObject
-              set! (.-hidden login-panel) true
-              set! (.-hidden board) false
-              set! (.-textContent current-user) username
-              .!focus input
+                login-panel $ option:unwrap $ browser/query-selector |#login-panel
+                board $ option:unwrap $ browser/query-selector |#board
+                current-user $ option:unwrap $ browser/query-selector |#current-user
+                input $ option:unwrap $ browser/query-selector |#content
+              browser/element-set-hidden! login-panel true
+              browser/element-set-hidden! board false
+              browser/element-set-text-content! current-user username
+              browser/element-focus! input
           :examples $ []
           :schema $ :: 'Dynamic
         'show-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-login! ()
             let
-                login-panel $ unsafe-coerce (js/document.querySelector |#login-panel) JsObject
-                board $ unsafe-coerce (js/document.querySelector |#board) JsObject
-              set! (.-hidden login-panel) false
-              set! (.-hidden board) true
+                login-panel $ option:unwrap $ browser/query-selector |#login-panel
+                board $ option:unwrap $ browser/query-selector |#board
+              browser/element-set-hidden! login-panel false
+              browser/element-set-hidden! board true
               set-status! "|请登录" |
           :examples $ []
           :schema $ :: 'Dynamic
         'submit-content! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn submit-content! ()
             let
-                input $ unsafe-coerce (js/document.querySelector |#content) JsObject
-                content $ unsafe-coerce (.-value input) String
+                input $ option:unwrap $ browser/query-selector |#content
+                content $ option:unwrap-or
+                  js-nullish->option $ input :value
+                  , |
               when
-                >
-                  unsafe-coerce (.-length content) Number
-                  , 0
+                > (count content) 0
                 do (set-status! "|保存中" |online) (create-snippet! content)
           :examples $ []
           :schema $ :: 'Dynamic
         'wire-events! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wire-events! ()
             let
-                login-form $ unsafe-coerce (js/document.querySelector |#login-form) JsObject
-                form $ unsafe-coerce (js/document.querySelector |#snippet-form) JsObject
-                input $ unsafe-coerce (js/document.querySelector |#content) JsObject
-                refresh $ unsafe-coerce (js/document.querySelector |#refresh) JsObject
-                logout-button $ unsafe-coerce (js/document.querySelector |#logout) JsObject
-              .!addEventListener login-form |submit $ fn (event)
-                do (.!preventDefault event) (login!)
-              .!addEventListener form |submit $ fn (event)
-                do (.!preventDefault event) (submit-content!)
-              .!addEventListener input |keydown $ fn (event)
-                when
-                  and
-                    = |Enter $ unsafe-coerce (.-key event) String
-                    or
-                      unsafe-coerce (.-metaKey event) Bool
-                      unsafe-coerce (.-ctrlKey event) Bool
-                  do (.!preventDefault event) (submit-content!)
-              .!addEventListener refresh |click $ fn (_event) (load-snippets!)
-              .!addEventListener logout-button |click $ fn (_event) (logout!)
+                login-form $ option:unwrap $ browser/query-selector |#login-form
+                form $ option:unwrap $ browser/query-selector |#snippet-form
+                input $ option:unwrap $ browser/query-selector |#content
+                refresh $ option:unwrap $ browser/query-selector |#refresh
+                logout-button $ option:unwrap $ browser/query-selector |#logout
+              browser/element-add-event-listener! login-form |submit $ fn (event)
+                do (event .prevent-default!) (login!)
+              browser/element-add-event-listener! form |submit $ fn (event)
+                do (event .prevent-default!) (submit-content!)
+              browser/element-add-event-listener! input |keydown $ fn (event)
+                let
+                    key-event $ browser/keyboard-event-host event
+                  when
+                    and
+                      = |Enter $ key-event :key
+                      or (key-event :meta-key?) (key-event :ctrl-key?)
+                    do (key-event .prevent-default!) (submit-content!)
+              browser/element-add-event-listener! refresh |click $ fn (_event) (load-snippets!)
+              browser/element-add-event-listener! logout-button |click $ fn (_event) (logout!)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.lite
+          :require (js-ffi.browser :as browser) (js-ffi.shared :as shared) (js-ffi.contract :as contract)
