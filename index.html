@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#161616" />
+    <meta name="theme-color" content="#f8f8fa" />
     <title>Copyboard Lite</title>
     <link href="https://cdn.tiye.me/logo/copyboard.png" rel="icon" type="image/png" />
     <link rel="stylesheet" href="/assets/main.css" />
@@ -12,15 +12,18 @@
     <main id="app">
       <section class="shell">
         <header>
-          <div>
-            <p class="eyebrow">UNIONID PLAYGROUND</p>
-            <h1>Copyboard <span>Lite</span></h1>
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
+            <div>
+              <h1>Copyboard <span>Lite</span></h1>
+            </div>
           </div>
           <span id="status" class="status">连接中</span>
         </header>
         <section id="login-panel" class="login-panel">
-          <h2>登录你的剪贴板</h2>
-          <p>账号由服务端配置，每个用户只能访问自己的内容。</p>
+          <span class="section-kicker">PRIVATE CLIPBOARD</span>
+          <h2>随手保存，<br />随时取用。</h2>
+          <p>登录后即可访问你的私人剪贴板。内容只对你可见。</p>
           <form id="login-form">
             <label for="username">用户名</label>
             <input id="username" autocomplete="username" placeholder="输入用户名" required />
@@ -31,20 +34,24 @@
         </section>
         <section id="board" hidden>
           <div class="user-bar">
-            <span>当前用户：<strong id="current-user"></strong></span>
-            <button id="logout" class="ghost" type="button">退出</button>
+            <span class="account-label"><span class="account-avatar" aria-hidden="true">●</span><strong id="current-user"></strong></span>
+            <button id="logout" class="icon-button" type="button" aria-label="退出登录" title="退出登录">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M9 12h9m-3-3 3 3-3 3" /></svg>
+            </button>
           </div>
           <form id="snippet-form">
-            <label for="content">新内容</label>
-            <textarea id="content" rows="4" placeholder="粘贴一段文字或链接…" required></textarea>
+            <label class="sr-only" for="content">添加到剪贴板</label>
+            <textarea id="content" rows="3" placeholder="粘贴文字或链接…" required></textarea>
             <div class="composer-actions">
-              <span>Ctrl / ⌘ + Enter 快速发送</span>
-              <button type="submit">保存到剪贴板</button>
+              <span>⌘ / Ctrl + Enter</span>
+              <button type="submit">保存 <span aria-hidden="true">↗</span></button>
             </div>
           </form>
           <div class="section-title">
             <h2>最近内容</h2>
-            <button id="refresh" class="ghost" type="button" aria-label="重新加载剪贴板数据">↻ 刷新数据</button>
+            <button id="refresh" class="icon-button" type="button" aria-label="重新加载剪贴板数据" title="刷新数据">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.8 9a7 7 0 0 1 12-2L20 12M4 12l2.2 5a7 7 0 0 0 12-2" /></svg>
+            </button>
           </div>
           <div id="snippets" class="snippets"></div>
           <p id="empty" class="empty">还没有内容，先保存第一条吧。</p>

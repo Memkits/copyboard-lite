@@ -224,7 +224,9 @@
                   browser/element-set-class-name! actions |snippet-actions
                   browser/element-set-text-content! time-node $ shared/date-local-string $ shared/date-from-ms created-at
                   browser/element-set-text-content! copy-button "|复制"
+                  do (browser/element-set-attribute! copy-button |type |button) (browser/element-set-attribute! copy-button |aria-label "|复制内容") (browser/element-set-attribute! copy-button |title "|复制内容")
                   browser/element-set-text-content! remove-button "|删除"
+                  do (browser/element-set-attribute! remove-button |type |button) (browser/element-set-attribute! remove-button |aria-label "|删除内容") (browser/element-set-attribute! remove-button |title "|删除内容")
                   browser/element-set-class-name! remove-button |remove
                   browser/element-add-event-listener! copy-button |click $ fn (_event) (browser/clipboard-write-text! content)
                   browser/element-add-event-listener! remove-button |click $ fn (_event) (remove-snippet! id)
