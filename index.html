@@ -15,7 +15,6 @@
           <div class="brand">
             <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
             <div>
-              <p class="eyebrow">YOUR SPACE TO SAVE</p>
               <h1>Copyboard <span>Lite</span></h1>
             </div>
           </div>
@@ -35,20 +34,24 @@
         </section>
         <section id="board" hidden>
           <div class="user-bar">
-            <span>你好，<strong id="current-user"></strong><span class="welcome-dot">.</span></span>
-            <button id="logout" class="ghost" type="button">退出</button>
+            <span class="account-label"><span class="account-avatar" aria-hidden="true">●</span><strong id="current-user"></strong></span>
+            <button id="logout" class="icon-button" type="button" aria-label="退出登录" title="退出登录">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M9 12h9m-3-3 3 3-3 3" /></svg>
+            </button>
           </div>
           <form id="snippet-form">
-            <label for="content">添加到剪贴板</label>
-            <textarea id="content" rows="4" placeholder="在这里粘贴文字或链接…" required></textarea>
+            <label class="sr-only" for="content">添加到剪贴板</label>
+            <textarea id="content" rows="3" placeholder="粘贴文字或链接…" required></textarea>
             <div class="composer-actions">
-              <span>Ctrl / ⌘ + Enter 快速发送</span>
-              <button type="submit">保存内容 <span aria-hidden="true">↗</span></button>
+              <span>⌘ / Ctrl + Enter</span>
+              <button type="submit">保存 <span aria-hidden="true">↗</span></button>
             </div>
           </form>
           <div class="section-title">
-            <div><span class="section-kicker">YOUR COLLECTION</span><h2>最近内容</h2></div>
-            <button id="refresh" class="ghost" type="button" aria-label="重新加载剪贴板数据">↻ 刷新数据</button>
+            <h2>最近内容</h2>
+            <button id="refresh" class="icon-button" type="button" aria-label="重新加载剪贴板数据" title="刷新数据">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.8 9a7 7 0 0 1 12-2L20 12M4 12l2.2 5a7 7 0 0 0 12-2" /></svg>
+            </button>
           </div>
           <div id="snippets" class="snippets"></div>
           <p id="empty" class="empty">还没有内容，先保存第一条吧。</p>
