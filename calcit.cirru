@@ -52,18 +52,20 @@
                       js-object $ :content content
                 match request
                   (:ok response)
-                    let
-                        created-result $ js-await $ shared/response-json response
-                      match created-result
-                        (:ok created)
-                          let
-                              input $ option:unwrap $ browser/query-selector |#content
-                            .!unshift @*snippets created
-                            render-snippets! @*snippets
-                            browser/element-set-value! input |
-                            browser/element-focus! input
-                            set-status! "|已保存" |online
-                        (:err error) (raise error)
+                    if (response :ok?)
+                      let
+                          created-result $ js-await $ shared/response-json response
+                        match created-result
+                          (:ok created)
+                            let
+                                input $ option:unwrap $ browser/query-selector |#content
+                              .!unshift @*snippets created
+                              render-snippets! @*snippets
+                              browser/element-set-value! input |
+                              browser/element-focus! input
+                              set-status! "|已保存" |online
+                          (:err error) (raise error)
+                      handle-response-failure! (response :status) "|保存失败"
                   (:err error) (raise error)
               fn (error)
                 do (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
@@ -71,6 +73,11 @@
           :schema $ :: 'Dynamic
         'get-token $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-token () (browser/storage-get |copyboard-lite-token)
+          :examples $ []
+          :schema $ :: 'Dynamic
+        'handle-response-failure! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn handle-response-failure! (status label)
+            if (= 401 status) (logout!) (set-status! label |error)
           :examples $ []
           :schema $ :: 'Dynamic
         'load-snippets! $ %{} 'CodeEntry (:doc |)
@@ -82,12 +89,19 @@
                   request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers (%none)
                 match request
                   (:ok response)
-                    let
-                        snippets-result $ js-await $ shared/response-json response
-                      match snippets-result
-                        (:ok snippets)
-                          do (reset! *snippets snippets) (render-snippets! snippets) (set-status! "|已连接" |online)
-                        (:err error) (raise error)
+                    if (response :ok?)
+                      let
+                          snippets-result $ js-await $ shared/response-json response
+                        match snippets-result
+                          (:ok snippets)
+                            let
+                                username $ option:unwrap-or (browser/storage-get |copyboard-lite-user) |
+                              reset! *snippets snippets
+                              render-snippets! snippets
+                              show-board! username
+                              set-status! "|已同步" |online
+                          (:err error) (raise error)
+                      handle-response-failure! (response :status) "|加载失败"
                   (:err error) (raise error)
               fn (error)
                 do (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
@@ -114,19 +128,21 @@
                         js-object (:username username) (:password password)
                   match request
                     (:ok response)
-                      let
-                          data-result $ js-await $ shared/response-json response
-                        match data-result
-                          (:ok data)
-                            let
-                                token $ contract/expect-string |login.token $ contract/object-field |login data |token
-                                user $ contract/expect-string |login.username $ contract/object-field |login data |username
-                              browser/storage-set! |copyboard-lite-token token
-                              browser/storage-set! |copyboard-lite-user user
-                              browser/element-set-value! password-input |
-                              show-board! user
-                              js-await $ load-snippets!
-                          (:err error) (raise error)
+                      if (response :ok?)
+                        let
+                            data-result $ js-await $ shared/response-json response
+                          match data-result
+                            (:ok data)
+                              let
+                                  token $ contract/expect-string |token $ contract/object-field |login-response data |token
+                                  user $ contract/expect-string |username $ contract/object-field |login-response data |username
+                                browser/storage-set! |copyboard-lite-token token
+                                browser/storage-set! |copyboard-lite-user user
+                                browser/element-set-value! password-input |
+                                set-status! "|正在同步" |online
+                                js-await $ load-snippets!
+                            (:err error) (raise error)
+                        do (logout!) (set-status! "|登录失败" |error)
                     (:err error) (raise error)
               fn (error)
                 do (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
@@ -143,15 +159,21 @@
           :code $ quote $ defn main! () (wire-events!)
             if
               option:some? $ get-token
-              let
-                  username $ option:unwrap-or (browser/storage-get |copyboard-lite-user) |
-                show-board! username
-                load-snippets!
+              do (set-status! "|验证登录" |online) (load-snippets!)
               show-login!
             println |Copyboard-Lite-started
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+        'refresh-if-active! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn refresh-if-active! ()
+            when
+              option:some? $ get-token
+              match (browser/visibility-state)
+                (:visible) (load-snippets!)
+                _ nil
+          :examples $ []
+          :schema $ :: 'Dynamic
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if
@@ -170,7 +192,9 @@
                   request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers (%none)
                 match request
                   (:ok response)
-                    js-await $ load-snippets!
+                    if (response :ok?)
+                      js-await $ load-snippets!
+                      handle-response-failure! (response :status) "|删除失败"
                   (:err error) (raise error)
               fn (error)
                 do (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
@@ -263,6 +287,7 @@
                 input $ option:unwrap $ browser/query-selector |#content
                 refresh $ option:unwrap $ browser/query-selector |#refresh
                 logout-button $ option:unwrap $ browser/query-selector |#logout
+                document $ browser/element-host js/document
               browser/element-add-event-listener! login-form |submit $ fn (event)
                 do (event .prevent-default!) (login!)
               browser/element-add-event-listener! form |submit $ fn (event)
@@ -275,8 +300,12 @@
                       = |Enter $ key-event :key
                       or (key-event :meta-key?) (key-event :ctrl-key?)
                     do (key-event .prevent-default!) (submit-content!)
-              browser/element-add-event-listener! refresh |click $ fn (_event) (load-snippets!)
+              browser/element-add-event-listener! refresh |click $ fn (_event)
+                do (set-status! "|刷新中" |online) (load-snippets!)
               browser/element-add-event-listener! logout-button |click $ fn (_event) (logout!)
+              browser/element-add-event-listener! document |visibilitychange $ fn (_event) (refresh-if-active!)
+              browser/add-event-listener! |focus $ fn (_event) (refresh-if-active!)
+              browser/add-event-listener! |online $ fn (_event) (refresh-if-active!)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
