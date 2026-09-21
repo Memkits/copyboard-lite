@@ -287,7 +287,7 @@
                 input $ option:unwrap $ browser/query-selector |#content
                 refresh $ option:unwrap $ browser/query-selector |#refresh
                 logout-button $ option:unwrap $ browser/query-selector |#logout
-                document $ browser/element-host js/document
+                document-element $ browser/element-host js/document
               browser/element-add-event-listener! login-form |submit $ fn (event)
                 do (event .prevent-default!) (login!)
               browser/element-add-event-listener! form |submit $ fn (event)
@@ -303,7 +303,7 @@
               browser/element-add-event-listener! refresh |click $ fn (_event)
                 do (set-status! "|刷新中" |online) (load-snippets!)
               browser/element-add-event-listener! logout-button |click $ fn (_event) (logout!)
-              browser/element-add-event-listener! document |visibilitychange $ fn (_event) (refresh-if-active!)
+              browser/element-add-event-listener! document-element |visibilitychange $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |focus $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |online $ fn (_event) (refresh-if-active!)
           :examples $ []
