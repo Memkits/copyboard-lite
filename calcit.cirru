@@ -15,9 +15,24 @@
     %{} 'FileEntry
       :defs $ {}
         '*snippets $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *snippets (js-array)
+          :code $ quote $ defatom *snippets (empty-snippets-js)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'JsObject
+        'SnippetArrayHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait SnippetArrayHost (:length 'Number)
+            .for-each! $ :: 'Fn $ {}
+              :args $ [] 'app.lite/SnippetArrayHost $ :: 'Fn
+                {}
+                  :args $ [] 'JsObject 'Number 'JsObject
+                  :return 'Unit
+              :return 'Unit
+            .unshift! $ :: 'Fn $ {}
+              :args $ [] 'app.lite/SnippetArrayHost 'JsObject
+              :return 'Number
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+            :names $ {} (:for-each! |forEach) (:unshift! |unshift)
+          :schema $ :: 'Trait
         'api-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-base
             let
@@ -30,7 +45,7 @@
                 and local-host? $ not= environment |prod
                 , |http://127.0.0.1:11030 |https://cp.chenyong.life
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'auth-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn auth-headers ()
             let
@@ -40,7 +55,15 @@
               shared/headers-set! headers |Authorization $ str (shared/decode-uri-component |Bearer%20) token
               , headers
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'js-ffi.shared/HeadersHost)
+            :args $ []
+        'checked-snippet-array $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn checked-snippet-array (value)
+            if (js/Array.isArray value) (unsafe-coerce value SnippetArrayHost) (raise |Expected-snippets-array)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.lite/SnippetArrayHost)
+            :args $ [] 'JsObject
+            :features $ #{} :js-ffi
         'create-snippet! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn create-snippet! (content)
             hint-fn $ {} $ :async true
@@ -59,7 +82,9 @@
                           (:ok created)
                             let
                                 input $ option:unwrap $ browser/query-selector |#content
-                              .!unshift @*snippets created
+                              let
+                                  snippet-array $ checked-snippet-array @*snippets
+                                snippet-array .unshift! created
                               render-snippets! @*snippets
                               browser/element-set-value! input |
                               browser/element-focus! input
@@ -67,19 +92,29 @@
                           (:err error) (raise error)
                       handle-response-failure! (response :status) "|保存失败"
                   (:err error) (raise error)
-              fn (error)
-                do (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
+              fn (error) (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
+            :args $ [] 'String
+            :features $ #{} :js-ffi
+        'empty-snippets-js $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn empty-snippets-js () (js-array)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'JsObject)
+            :args $ []
+            :features $ #{} :js-ffi
         'get-token $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-token () (browser/storage-get |copyboard-lite-token)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ []
+            :return $ :: 'calcit.core/Option 'String
         'handle-response-failure! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-response-failure! (status label)
             if (= 401 status) (logout!) (set-status! label |error)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'Number 'String
         'load-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn load-snippets! ()
             hint-fn $ {} $ :async true
@@ -103,10 +138,11 @@
                           (:err error) (raise error)
                       handle-response-failure! (response :status) "|加载失败"
                   (:err error) (raise error)
-              fn (error)
-                do (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
+              fn (error) (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
         'login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn login! ()
             hint-fn $ {} $ :async true
@@ -144,17 +180,19 @@
                             (:err error) (raise error)
                         do (logout!) (set-status! "|登录失败" |error)
                     (:err error) (raise error)
-              fn (error)
-                do (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
+              fn (error) (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
         'logout! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn logout! () (browser/storage-remove! |copyboard-lite-token) (browser/storage-remove! |copyboard-lite-user)
-            reset! *snippets $ js-array
+            reset! *snippets $ empty-snippets-js
             render-snippets! @*snippets
             show-login!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (wire-events!)
             if
@@ -171,9 +209,10 @@
               option:some? $ get-token
               match (browser/visibility-state)
                 (:visible) (load-snippets!)
-                _ nil
+                _ &unit
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if
@@ -182,7 +221,8 @@
               show-login!
             println |Copyboard-Lite-reloaded
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'remove-snippet! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-snippet! (id)
             hint-fn $ {} $ :async true
@@ -196,23 +236,25 @@
                       js-await $ load-snippets!
                       handle-response-failure! (response :status) "|删除失败"
                   (:err error) (raise error)
-              fn (error)
-                do (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
+              fn (error) (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
+            :args $ [] 'Number
+            :features $ #{} :js-ffi
         'render-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-snippets! (snippets)
             let
                 container $ option:unwrap $ browser/query-selector |#snippets
                 empty-node $ option:unwrap $ browser/query-selector |#empty
+                snippet-array $ checked-snippet-array snippets
               browser/element-set-inner-html! container |
-              browser/element-set-hidden! empty-node $ not= 0 $ unsafe-coerce (.-length snippets) Number
-              .!forEach snippets $ fn (raw-snippet & _index)
+              browser/element-set-hidden! empty-node $ not= 0 $ snippet-array :length
+              snippet-array .for-each! $ fn (raw-snippet _index _array)
                 let
-                    snippet $ unsafe-coerce raw-snippet JsObject
-                    content $ unsafe-coerce (.-content snippet) String
-                    id $ unsafe-coerce (.-id snippet) Number
-                    created-at $ unsafe-coerce (.-created_at snippet) Number
+                    snippet $ contract/expect-object |snippet raw-snippet
+                    content $ contract/expect-string |content $ contract/object-field |snippet snippet |content
+                    id $ contract/expect-number |id $ contract/object-field |snippet snippet |id
+                    created-at $ contract/expect-number |created_at $ contract/object-field |snippet snippet |created_at
                     card $ browser/create-element |article
                     text-node $ browser/create-element |p
                     actions $ browser/create-element |div
@@ -224,20 +266,27 @@
                   browser/element-set-class-name! actions |snippet-actions
                   browser/element-set-text-content! time-node $ shared/date-local-string $ shared/date-from-ms created-at
                   browser/element-set-text-content! copy-button "|复制"
-                  do (browser/element-set-attribute! copy-button |type |button) (browser/element-set-attribute! copy-button |aria-label "|复制内容") (browser/element-set-attribute! copy-button |title "|复制内容")
+                  browser/element-set-attribute! copy-button |type |button
+                  browser/element-set-attribute! copy-button |aria-label "|复制内容"
+                  browser/element-set-attribute! copy-button |title "|复制内容"
                   browser/element-set-text-content! remove-button "|删除"
-                  do (browser/element-set-attribute! remove-button |type |button) (browser/element-set-attribute! remove-button |aria-label "|删除内容") (browser/element-set-attribute! remove-button |title "|删除内容")
+                  browser/element-set-attribute! remove-button |type |button
+                  browser/element-set-attribute! remove-button |aria-label "|删除内容"
+                  browser/element-set-attribute! remove-button |title "|删除内容"
                   browser/element-set-class-name! remove-button |remove
                   browser/element-add-event-listener! copy-button |click $ fn (_event) (browser/clipboard-write-text! content)
-                  browser/element-add-event-listener! remove-button |click $ fn (_event) (remove-snippet! id)
+                  browser/element-add-event-listener! remove-button |click $ fn (_event) (remove-snippet! id) &unit
                   browser/append-child! actions time-node
                   browser/append-child! actions copy-button
                   browser/append-child! actions remove-button
                   browser/append-child! card text-node
                   browser/append-child! card actions
                   browser/append-child! container card
+                  , &unit
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'JsObject
+            :features $ #{} :js-ffi
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label state)
             let
@@ -245,7 +294,8 @@
               browser/element-set-text-content! target label
               browser/element-set-class-name! target $ str |status | state
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'String 'String
         'show-board! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-board! (username)
             let
@@ -258,7 +308,8 @@
               browser/element-set-text-content! current-user username
               browser/element-focus! input
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'String
         'show-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-login! ()
             let
@@ -268,7 +319,8 @@
               browser/element-set-hidden! board true
               set-status! "|请登录" |
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'submit-content! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn submit-content! ()
             let
@@ -279,8 +331,11 @@
               when
                 > (count content) 0
                 do (set-status! "|保存中" |online) (create-snippet! content)
+              , &unit
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
         'wire-events! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wire-events! ()
             let
@@ -290,10 +345,8 @@
                 refresh $ option:unwrap $ browser/query-selector |#refresh
                 logout-button $ option:unwrap $ browser/query-selector |#logout
                 document-element $ browser/element-host js/document
-              browser/element-add-event-listener! login-form |submit $ fn (event)
-                do (event .prevent-default!) (login!)
-              browser/element-add-event-listener! form |submit $ fn (event)
-                do (event .prevent-default!) (submit-content!)
+              browser/element-add-event-listener! login-form |submit $ fn (event) (event .prevent-default!) (login!) &unit
+              browser/element-add-event-listener! form |submit $ fn (event) (event .prevent-default!) (submit-content!)
               browser/element-add-event-listener! input |keydown $ fn (event)
                 let
                     key-event $ browser/keyboard-event-host event
@@ -302,14 +355,16 @@
                       = |Enter $ key-event :key
                       or (key-event :meta-key?) (key-event :ctrl-key?)
                     do (key-event .prevent-default!) (submit-content!)
-              browser/element-add-event-listener! refresh |click $ fn (_event)
-                do (set-status! "|刷新中" |online) (load-snippets!)
+                , &unit
+              browser/element-add-event-listener! refresh |click $ fn (_event) (set-status! "|刷新中" |online) (load-snippets!) &unit
               browser/element-add-event-listener! logout-button |click $ fn (_event) (logout!)
               browser/element-add-event-listener! document-element |visibilitychange $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |focus $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |online $ fn (_event) (refresh-if-active!)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.lite
           :require (js-ffi.browser :as browser) (js-ffi.shared :as shared) (js-ffi.contract :as contract)
