@@ -8,3 +8,5 @@
 /.pnp.*
 /.calcit-error.cirru
 .DS_Store
+.pnp.cjs
+.pnp.loader.mjs
