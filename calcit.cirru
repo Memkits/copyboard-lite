@@ -3,7 +3,7 @@
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
   :entries $ {}
-    :default $ {} (:description |) (:init-fn 'app.lite/main!) (:mode :native) (:reload-fn 'app.lite/reload!)
+    :default $ {} (:description |) (:init-fn 'app.lite/main!) (:mode :native) (:reload-fn 'app.lite/reload!) (:target :browser)
       :feature-policy $ {}
       :modules $ [] |js-ffi/
       :type-slots $ {}
@@ -344,7 +344,6 @@
                 input $ option:unwrap $ browser/query-selector |#content
                 refresh $ option:unwrap $ browser/query-selector |#refresh
                 logout-button $ option:unwrap $ browser/query-selector |#logout
-                document-element $ browser/element-host js/document
               browser/element-add-event-listener! login-form |submit $ fn (event) (event .prevent-default!) (login!) &unit
               browser/element-add-event-listener! form |submit $ fn (event) (event .prevent-default!) (submit-content!)
               browser/element-add-event-listener! input |keydown $ fn (event)
@@ -358,7 +357,7 @@
                 , &unit
               browser/element-add-event-listener! refresh |click $ fn (_event) (set-status! "|刷新中" |online) (load-snippets!) &unit
               browser/element-add-event-listener! logout-button |click $ fn (_event) (logout!)
-              browser/element-add-event-listener! document-element |visibilitychange $ fn (_event) (refresh-if-active!)
+              browser/document-add-event-listener! |visibilitychange $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |focus $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |online $ fn (_event) (refresh-if-active!)
           :examples $ []
