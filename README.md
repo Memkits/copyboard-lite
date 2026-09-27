@@ -20,6 +20,9 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
+前端使用 Calcit 0.24.3 和 `js-ffi.browser` 的类型化浏览器接口。监听文档可见性变化时
+直接调用 `document-add-event-listener!`，不再把 `js/document` 当作 DOM 元素。
+
 鉴权配置缺失或无效时后端会拒绝启动：
 
 - `COPYBOARD_USERS`：逗号分隔的 `用户名:密码`；用户名仅允许 3–32 位字母、数字、`_` 和 `-`。
