@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@1.94.0
         with:
           components: rustfmt, clippy
@@ -32,26 +34,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.1.0
         with:
           node-version: 24
       - name: Enable Yarn
         run: |
           corepack enable
-          corepack prepare yarn@4.12.0 --activate
+          corepack prepare yarn@4.18.0 --activate
           yarn --version
       - uses: calcit-lang/setup-calcit@ca701be5a471759e442aa053cd100720bbe1f09f # v1.5.0
         with:
           tools: calcit,caps
+          caps-version: "0.1.1"
       - name: Check and build frontend
         run: |
           caps --ci
           yarn install --immutable
           caps verify --toolchain
-          test "$(calcit --version)" = "0.24.3"
+          test "$(calcit --version)" = "0.27.0"
           calcit edit format
           git diff --exit-code -- calcit.cirru
+          calcit fix --workflow strict --verify --format edn
           yarn check
           calcit analyze check-public --ns app.lite --summary-only
+          calcit analyze dynamic-methods --summary-only --format json
+          calcit analyze deprecated --summary-only --format json
           yarn compile
           yarn build

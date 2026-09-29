@@ -7,9 +7,9 @@
       :feature-policy $ {}
       :modules $ [] |js-ffi/
       :type-slots $ {}
-    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
+    :server $ {} (:description |) (:init-fn 'app.lite/main!) (:mode :native) (:reload-fn 'app.lite/reload!) (:target :browser)
       :feature-policy $ {}
-      :modules $ [] |recollect/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/ |calcit-http/
+      :modules $ [] |js-ffi/
       :type-slots $ {}
   :files $ {} $ 'app.lite
     %{} 'FileEntry
@@ -71,7 +71,7 @@
               let
                   headers $ auth-headers
                   request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :post) headers
-                    %some $ contract/expect-string |body $ js/JSON.stringify
+                    Option :some $ contract/expect-string |body $ js/JSON.stringify
                       js-object $ :content content
                 match request
                   (:ok response)
@@ -121,7 +121,7 @@
             try
               let
                   headers $ auth-headers
-                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers (%none)
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers (Option :none)
                 match request
                   (:ok response)
                     if (response :ok?)
@@ -160,7 +160,7 @@
                 shared/headers-set! headers |Content-Type |application/json
                 let
                     request $ js-await $ shared/fetch-request (str api-base |/api/auth/login) (%:: shared/HttpMethod :post) headers
-                      %some $ contract/expect-string |body $ js/JSON.stringify
+                      Option :some $ contract/expect-string |body $ js/JSON.stringify
                         js-object (:username username) (:password password)
                   match request
                     (:ok response)
@@ -229,7 +229,7 @@
             try
               let
                   headers $ auth-headers
-                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers (%none)
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers (Option :none)
                 match request
                   (:ok response)
                     if (response :ok?)
