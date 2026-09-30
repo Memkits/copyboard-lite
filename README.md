@@ -20,7 +20,7 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
-前端使用 Calcit 0.24.3 和 `js-ffi.browser` 的类型化浏览器接口。监听文档可见性变化时
+前端使用 Calcit 0.27.0 和 `js-ffi.browser` 的类型化浏览器接口。监听文档可见性变化时
 直接调用 `document-add-event-listener!`，不再把 `js/document` 当作 DOM 元素。
 
 鉴权配置缺失或无效时后端会拒绝启动：
@@ -28,7 +28,7 @@ yarn dev
 - `COPYBOARD_USERS`：逗号分隔的 `用户名:密码`；用户名仅允许 3–32 位字母、数字、`_` 和 `-`。
 - `COPYBOARD_SECRET`：至少 32 字节的随机会话签名密钥。
 
-登录后返回 24 小时有效的签名 Bearer token。所有 snippet 查询、创建和删除都会使用 token 中的用户名作为 UnionID 数据过滤条件；旧版本的共享数据迁移到不可登录的 `legacy` 所有者。
+登录后会同时返回签名 Bearer token，并写入 `HttpOnly`、`Secure`、`SameSite=Lax` 的会话 Cookie。会话有效期为三天；每次成功的鉴权请求都会重新签发三天有效期的 Cookie 和 token，实现滑动续期。所有 snippet 查询、创建和删除都会使用会话中的用户名作为 UnionID 数据过滤条件；旧版本的共享数据迁移到不可登录的 `legacy` 所有者。
 
 ## 后端独立测试
 

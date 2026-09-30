@@ -75,22 +75,24 @@
                       js-object $ :content content
                 match request
                   (:ok response)
-                    if (response :ok?)
-                      let
-                          created-result $ js-await $ shared/response-json response
-                        match created-result
-                          (:ok created)
-                            let
-                                input $ option:unwrap $ browser/query-selector |#content
+                    do
+                      store-renewed-token! $ shared/headers-get (response :headers) |x-copyboard-token
+                      if (response :ok?)
+                        let
+                            created-result $ js-await $ shared/response-json response
+                          match created-result
+                            (:ok created)
                               let
-                                  snippet-array $ checked-snippet-array @*snippets
-                                snippet-array .unshift! created
-                              render-snippets! @*snippets
-                              browser/element-set-value! input |
-                              browser/element-focus! input
-                              set-status! "|已保存" |online
-                          (:err error) (raise error)
-                      handle-response-failure! (response :status) "|保存失败"
+                                  input $ option:unwrap $ browser/query-selector |#content
+                                let
+                                    snippet-array $ checked-snippet-array @*snippets
+                                  snippet-array .unshift! created
+                                render-snippets! @*snippets
+                                browser/element-set-value! input |
+                                browser/element-focus! input
+                                set-status! "|已保存" |online
+                            (:err error) (raise error)
+                        handle-response-failure! (response :status) "|保存失败"
                   (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
           :examples $ []
@@ -124,19 +126,21 @@
                   request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers (Option :none)
                 match request
                   (:ok response)
-                    if (response :ok?)
-                      let
-                          snippets-result $ js-await $ shared/response-json response
-                        match snippets-result
-                          (:ok snippets)
-                            let
-                                username $ option:unwrap-or (browser/storage-get |copyboard-lite-user) |
-                              reset! *snippets snippets
-                              render-snippets! snippets
-                              show-board! username
-                              set-status! "|已同步" |online
-                          (:err error) (raise error)
-                      handle-response-failure! (response :status) "|加载失败"
+                    do
+                      store-renewed-token! $ shared/headers-get (response :headers) |x-copyboard-token
+                      if (response :ok?)
+                        let
+                            snippets-result $ js-await $ shared/response-json response
+                          match snippets-result
+                            (:ok snippets)
+                              let
+                                  username $ option:unwrap-or (browser/storage-get |copyboard-lite-user) |
+                                reset! *snippets snippets
+                                render-snippets! snippets
+                                show-board! username
+                                set-status! "|已同步" |online
+                            (:err error) (raise error)
+                        handle-response-failure! (response :status) "|加载失败"
                   (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
           :examples $ []
@@ -164,21 +168,23 @@
                         js-object (:username username) (:password password)
                   match request
                     (:ok response)
-                      if (response :ok?)
-                        let
-                            data-result $ js-await $ shared/response-json response
-                          match data-result
-                            (:ok data)
-                              let
-                                  token $ contract/expect-string |token $ contract/object-field |login-response data |token
-                                  user $ contract/expect-string |username $ contract/object-field |login-response data |username
-                                browser/storage-set! |copyboard-lite-token token
-                                browser/storage-set! |copyboard-lite-user user
-                                browser/element-set-value! password-input |
-                                set-status! "|正在同步" |online
-                                js-await $ load-snippets!
-                            (:err error) (raise error)
-                        do (logout!) (set-status! "|登录失败" |error)
+                      do
+                        store-renewed-token! $ shared/headers-get (response :headers) |x-copyboard-token
+                        if (response :ok?)
+                          let
+                              data-result $ js-await $ shared/response-json response
+                            match data-result
+                              (:ok data)
+                                let
+                                    token $ contract/expect-string |token $ contract/object-field |login-response data |token
+                                    user $ contract/expect-string |username $ contract/object-field |login-response data |username
+                                  browser/storage-set! |copyboard-lite-token token
+                                  browser/storage-set! |copyboard-lite-user user
+                                  browser/element-set-value! password-input |
+                                  set-status! "|正在同步" |online
+                                  js-await $ load-snippets!
+                              (:err error) (raise error)
+                          do (logout!) (set-status! "|登录失败" |error)
                     (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
           :examples $ []
@@ -232,9 +238,11 @@
                   request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers (Option :none)
                 match request
                   (:ok response)
-                    if (response :ok?)
-                      js-await $ load-snippets!
-                      handle-response-failure! (response :status) "|删除失败"
+                    do
+                      store-renewed-token! $ shared/headers-get (response :headers) |x-copyboard-token
+                      if (response :ok?)
+                        js-await $ load-snippets!
+                        handle-response-failure! (response :status) "|删除失败"
                   (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
           :examples $ []
@@ -321,6 +329,15 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+        'store-renewed-token! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn store-renewed-token! (token)
+            do
+              when (option:some? token)
+                browser/storage-set! |copyboard-lite-token $ option:unwrap token
+              , &unit
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] $ :: 'Option 'String
         'submit-content! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn submit-content! ()
             let

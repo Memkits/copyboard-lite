@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use axum::extract::{Path as AxumPath, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::{self, Next};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get};
 use axum::{Json, Router};
 use base64::Engine as _;
@@ -87,7 +87,9 @@ const LEGACY_INSERT: &str = "insert snippets $snippet\nreturning";
 const LEGACY_DELETE: &str =
     "delete snippets | filter id == $id | filter owner == $owner\nreturning id";
 
-const TOKEN_TTL_SECONDS: i64 = 24 * 60 * 60;
+const TOKEN_TTL_SECONDS: i64 = 3 * 24 * 60 * 60;
+const SESSION_COOKIE_NAME: &str = "copyboard_session";
+const SESSION_TOKEN_HEADER: &str = "x-copyboard-token";
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -120,6 +122,11 @@ pub struct AppState {
 #[derive(Debug, Serialize)]
 struct ApiError {
     error: String,
+}
+
+struct Session {
+    username: String,
+    token: String,
 }
 
 pub fn app(database_path: impl AsRef<Path>) -> Result<Router, unionid::Error> {
@@ -216,7 +223,7 @@ async fn health() -> Json<serde_json::Value> {
 async fn login(
     State(state): State<AppState>,
     Json(input): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, (StatusCode, Json<ApiError>)> {
+) -> Result<Response, (StatusCode, Json<ApiError>)> {
     let Some(expected) = state.users.get(&input.username) else {
         return Err(unauthorized());
     };
@@ -228,25 +235,28 @@ async fn login(
         &input.username,
         unix_seconds() + TOKEN_TTL_SECONDS,
     );
-    Ok(Json(LoginResponse {
-        token,
+    let response = Json(LoginResponse {
+        token: token.clone(),
         username: input.username,
-    }))
+    })
+    .into_response();
+    Ok(with_session(response, &token))
 }
 
 async fn list_snippets(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Json<Vec<Snippet>>, (StatusCode, Json<ApiError>)> {
-    let owner = authorize(&headers, &state)?;
+) -> Result<Response, (StatusCode, Json<ApiError>)> {
+    let session = authorize(&headers, &state)?;
+    let owner = session.username.clone();
     let mut engine = state.engine.lock().await;
-    if state.typed_queries {
+    let snippets = if state.typed_queries {
         list_snippets_query::list_snippets_query(
             &mut engine,
             list_snippets_query::ListSnippetsQueryParams { owner },
         )
-        .map(|rows| Json(rows.into_iter().map(Snippet::from).collect()))
-        .map_err(internal_error)
+        .map(|rows| rows.into_iter().map(Snippet::from).collect())
+        .map_err(internal_error)?
     } else {
         engine
             .execute_with_params(
@@ -254,17 +264,18 @@ async fn list_snippets(
                 BTreeMap::from([("owner".into(), Value::Text(owner))]),
             )
             .typed_rows::<Snippet>()
-            .map(Json)
-            .map_err(internal_error)
-    }
+            .map_err(internal_error)?
+    };
+    Ok(with_session(Json(snippets).into_response(), &session.token))
 }
 
 async fn create_snippet(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(input): Json<NewSnippet>,
-) -> Result<(StatusCode, Json<Snippet>), (StatusCode, Json<ApiError>)> {
-    let owner = authorize(&headers, &state)?;
+) -> Result<Response, (StatusCode, Json<ApiError>)> {
+    let session = authorize(&headers, &state)?;
+    let owner = session.username.clone();
     let content = input.content.trim();
     if content.is_empty() {
         return Err((
@@ -301,15 +312,19 @@ async fn create_snippet(
             .next()
             .ok_or_else(|| internal_error("UnionID returned no inserted row"))?
     };
-    Ok((StatusCode::CREATED, Json(created)))
+    Ok(with_session(
+        (StatusCode::CREATED, Json(created)).into_response(),
+        &session.token,
+    ))
 }
 
 async fn delete_snippet(
     State(state): State<AppState>,
     headers: HeaderMap,
     AxumPath(id): AxumPath<i64>,
-) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
-    let owner = authorize(&headers, &state)?;
+) -> Result<Response, (StatusCode, Json<ApiError>)> {
+    let session = authorize(&headers, &state)?;
+    let owner = session.username.clone();
     let mut engine = state.engine.lock().await;
     let affected_rows = if state.typed_queries {
         delete_snippet_query::delete_snippet_query(
@@ -338,7 +353,10 @@ async fn delete_snippet(
                 error: "snippet not found".into(),
             }),
         )),
-        _ => Ok(StatusCode::NO_CONTENT),
+        _ => Ok(with_session(
+            StatusCode::NO_CONTENT.into_response(),
+            &session.token,
+        )),
     }
 }
 
@@ -416,6 +434,10 @@ async fn cors(request: axum::extract::Request, next: Next) -> Response {
         header::ACCESS_CONTROL_ALLOW_HEADERS,
         HeaderValue::from_static("authorization, content-type"),
     );
+    headers.insert(
+        header::ACCESS_CONTROL_EXPOSE_HEADERS,
+        HeaderValue::from_static(SESSION_TOKEN_HEADER),
+    );
     response
 }
 
@@ -479,18 +501,45 @@ fn issue_token(secret: &[u8], username: &str, expires_at: i64) -> String {
 fn authorize(
     headers: &HeaderMap,
     state: &AppState,
-) -> Result<String, (StatusCode, Json<ApiError>)> {
-    let token = headers
+) -> Result<Session, (StatusCode, Json<ApiError>)> {
+    let bearer = headers
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
+        .and_then(|value| value.strip_prefix("Bearer "));
+    let cookie = session_cookie(headers);
+    let username = [bearer, cookie]
+        .into_iter()
+        .flatten()
+        .find_map(|token| verify_token(&state.secret, token))
+        .filter(|username| state.users.contains_key(username))
         .ok_or_else(unauthorized)?;
-    let username = verify_token(&state.secret, token).ok_or_else(unauthorized)?;
-    if state.users.contains_key(&username) {
-        Ok(username)
-    } else {
-        Err(unauthorized())
-    }
+    let token = issue_token(&state.secret, &username, unix_seconds() + TOKEN_TTL_SECONDS);
+    Ok(Session { username, token })
+}
+
+fn session_cookie(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(header::COOKIE)?
+        .to_str()
+        .ok()?
+        .split(';')
+        .filter_map(|part| part.trim().split_once('='))
+        .find_map(|(name, value)| (name == SESSION_COOKIE_NAME).then_some(value))
+}
+
+fn with_session(mut response: Response, token: &str) -> Response {
+    let token_header = HeaderValue::from_str(token).expect("signed token is a valid header value");
+    response
+        .headers_mut()
+        .insert(SESSION_TOKEN_HEADER, token_header);
+    let cookie = format!(
+        "{SESSION_COOKIE_NAME}={token}; Max-Age={TOKEN_TTL_SECONDS}; Path=/api; HttpOnly; Secure; SameSite=Lax"
+    );
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&cookie).expect("session cookie is a valid header value"),
+    );
+    response
 }
 
 fn verify_token(secret: &[u8], token: &str) -> Option<String> {
@@ -674,6 +723,71 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn session_cookie_lasts_three_days_and_renews_on_activity() {
+        let database = temp_database("sliding-session");
+        let secret = b"test-secret-at-least-32-bytes-long".to_vec();
+        let service = app_with_auth(&database, test_users(), secret.clone()).unwrap();
+
+        let login = service
+            .clone()
+            .oneshot(
+                Request::post("/api/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"username": "alice", "password": "alice-pass"})
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(login.status(), StatusCode::OK);
+        let cookie = login.headers()[header::SET_COOKIE].to_str().unwrap();
+        assert!(cookie.starts_with("copyboard_session="));
+        assert!(cookie.contains("Max-Age=259200"));
+        assert!(cookie.contains("Path=/api"));
+        assert!(cookie.contains("HttpOnly"));
+        assert!(cookie.contains("Secure"));
+        assert!(cookie.contains("SameSite=Lax"));
+        let cookie_pair = cookie.split(';').next().unwrap().to_owned();
+        let login_token = login.headers()[SESSION_TOKEN_HEADER]
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let body = to_bytes(login.into_body(), usize::MAX).await.unwrap();
+        let login_body: LoginResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(login_body.token, login_token);
+
+        let expired_bearer = issue_token(&secret, "alice", unix_seconds());
+        let renewed = service
+            .clone()
+            .oneshot(
+                Request::get("/api/snippets")
+                    .header(header::AUTHORIZATION, format!("Bearer {expired_bearer}"))
+                    .header(header::COOKIE, cookie_pair)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(renewed.status(), StatusCode::OK);
+        let renewed_token = renewed.headers()[SESSION_TOKEN_HEADER].to_str().unwrap();
+        assert_eq!(
+            verify_token(&secret, renewed_token).as_deref(),
+            Some("alice")
+        );
+        assert!(
+            renewed.headers()[header::SET_COOKIE]
+                .to_str()
+                .unwrap()
+                .contains("Max-Age=259200")
+        );
+
+        drop(service);
+        let _ = std::fs::remove_file(database);
+    }
+
+    #[tokio::test]
     async fn snippet_input_is_trimmed_validated_and_stably_sorted() {
         let database = temp_database("validation");
         let service = app_with_auth(
@@ -845,6 +959,10 @@ mod tests {
         assert_eq!(
             preflight.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS],
             "authorization, content-type"
+        );
+        assert_eq!(
+            preflight.headers()[header::ACCESS_CONTROL_EXPOSE_HEADERS],
+            SESSION_TOKEN_HEADER
         );
 
         let anonymous = service
