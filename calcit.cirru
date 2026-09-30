@@ -117,6 +117,34 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number 'String
+        'link-href $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn link-href (content)
+            let
+                candidate $ content .trim
+              if
+                and
+                  or (candidate .starts-with? |https://) (candidate .starts-with? |http://)
+                  not $ candidate .includes? "| "
+                  not $ candidate .includes? "|\t"
+                  = 1 $ count $ candidate .split-lines
+                try
+                  let
+                      url $ shared/url-snapshot $ shared/url-create candidate candidate
+                    if
+                      and
+                        not= | $ url :host
+                        or
+                          = |https: $ url :protocol
+                          = |http: $ url :protocol
+                      Option :some $ url :href
+                      Option :none
+                  fn (_error) (Option :none)
+                Option :none
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'String
+            :features $ #{} :js-ffi
+            :return $ :: 'Option 'String
         'load-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn load-snippets! ()
             hint-fn $ {} $ :async true
@@ -270,7 +298,17 @@
                     copy-button $ browser/create-element |button
                     remove-button $ browser/create-element |button
                   browser/element-set-class-name! card |snippet
-                  browser/element-set-text-content! text-node content
+                  let
+                      link $ link-href content
+                    if (option:some? link)
+                      let
+                          anchor $ browser/create-element |a
+                        browser/element-set-text-content! anchor content
+                        browser/element-set-attribute! anchor |href $ option:unwrap link
+                        browser/element-set-attribute! anchor |target |_blank
+                        browser/element-set-attribute! anchor |rel "|noopener noreferrer"
+                        browser/append-child! text-node anchor
+                      browser/element-set-text-content! text-node content
                   browser/element-set-class-name! actions |snippet-actions
                   browser/element-set-text-content! time-node $ shared/date-local-string $ shared/date-from-ms created-at
                   browser/element-set-text-content! copy-button "|复制"
