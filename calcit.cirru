@@ -331,10 +331,9 @@
             :args $ []
         'store-renewed-token! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn store-renewed-token! (token)
-            do
-              when (option:some? token)
-                browser/storage-set! |copyboard-lite-token $ option:unwrap token
-              , &unit
+            when (option:some? token)
+              browser/storage-set! |copyboard-lite-token $ option:unwrap token
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] $ :: 'Option 'String
