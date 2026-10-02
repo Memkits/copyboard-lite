@@ -14,7 +14,6 @@ cargo run
 
 # 另一个终端：前端，默认 http://127.0.0.1:5173
 yarn install
-yarn compile
 yarn dev
 ```
 
@@ -22,6 +21,14 @@ yarn dev
 
 前端使用 Calcit 0.27.0 和 `js-ffi.browser` 的类型化浏览器接口。监听文档可见性变化时
 直接调用 `document-add-event-listener!`，不再把 `js/document` 当作 DOM 元素。
+
+`yarn dev` 会先编译一次再启动 Vite；需要监听 Calcit 修改时，在独立终端运行
+`calcit calcit.cirru -w`，不额外引入并发进程依赖。生产构建使用 `yarn build`。
+
+前端静态资源通过正式 COS action v1.2.0 上传，并由 action 内置能力校验 HTML
+引用和公开资源内容，不维护额外 CDN 校验脚本。`VITE_BASE_URL` 设置资源 CDN
+前缀；PR 上传路径包含 PR 编号、run id 和 attempt，避免不同预览相互覆盖。
+生产服务器前端目录和 Rust 后端部署保持不变。
 
 鉴权配置缺失或无效时后端会拒绝启动：
 

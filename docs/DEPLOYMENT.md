@@ -22,7 +22,7 @@ browser -- HTTPS --> reverse proxy
                                                    `-- /var/lib/copyboard-lite/copyboard.redb
 ```
 
-生产环境优先使用同源反向代理，减少 CORS 和 token 暴露面。当前前端 API 地址仍固定为本机开发地址，在远程部署前应增加构建期或运行期 API base 配置；在完成该项前，不应把现有前端产物直接当作远程生产构建。
+生产环境优先使用同源反向代理，减少 CORS 和 token 暴露面。当前前端在 localhost/127.0.0.1 使用 `http://127.0.0.1:11030`，其他域名（或本地 `?env=prod`）使用现有生产 API `https://cp.chenyong.life`。COS CDN 前缀只改变静态资源 URL，不改变 API、CORS 或后端路径；如部署到其他生产域名，仍需单独配置 API base 和对应 CORS 策略。
 
 ## 运行要求
 
