@@ -59,7 +59,7 @@
             :args $ []
         'checked-snippet-array $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn checked-snippet-array (value)
-            if (js/Array.isArray value) (unsafe-coerce value SnippetArrayHost) (raise |Expected-snippets-array)
+            if (js/Array.isArray value) (js-cast value 'app.lite/SnippetArrayHost) (raise |Expected-snippets-array)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.lite/SnippetArrayHost)
             :args $ [] 'JsObject
