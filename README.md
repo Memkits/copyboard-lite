@@ -19,7 +19,7 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
-前端使用 Calcit 0.27.0 和 `js-ffi.browser` 的类型化浏览器接口。监听文档可见性变化时
+前端使用正式 Calcit/procs 0.29.0 与 js-ffi 0.2.1 的类型化浏览器接口。监听文档可见性变化时
 直接调用 `document-add-event-listener!`，不再把 `js/document` 当作 DOM 元素。
 
 `yarn dev` 会先编译一次再启动 Vite；需要监听 Calcit 修改时，在独立终端运行
@@ -29,6 +29,10 @@ yarn dev
 引用和公开资源内容，不维护额外 CDN 校验脚本。`VITE_BASE_URL` 设置资源 CDN
 前缀；PR 上传路径包含 PR 编号、run id 和 attempt，避免不同预览相互覆盖。
 生产服务器前端目录和 Rust 后端部署保持不变。
+
+CI 仅检查规范格式、全定义严格类型和弃用调用零门禁，不运行迁移改写。
+snippet 数组入口使用 `Array.isArray` 与 `js-cast` 检查，原有内容、ID 和时间字段校验保留。
+规范文件为 `calcit.cirru`、`deps.cirru`，不提交旧快照或生成的前端资源。
 
 鉴权配置缺失或无效时后端会拒绝启动：
 
