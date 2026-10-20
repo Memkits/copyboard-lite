@@ -15,7 +15,7 @@
     %{} 'FileEntry
       :defs $ {}
         '*snippets $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *snippets (empty-snippets-js)
+          :code $ quote $ defref *snippets (empty-snippets-js)
           :examples $ []
           :schema $ :: 'Ref 'JsObject
         'SnippetArrayHost $ %{} 'CodeEntry (:doc |)
@@ -244,6 +244,7 @@
               match (browser/visibility-state)
                 (:visible) (load-snippets!)
                 _ &unit
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
