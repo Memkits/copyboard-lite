@@ -25,6 +25,7 @@ jobs:
           components: rustfmt, clippy
       - name: Check backend
         run: |
+          set -euo pipefail
           cargo fmt --check
           cargo check --locked
           cargo clippy --locked --all-targets -- -D warnings
@@ -50,6 +51,7 @@ jobs:
           caps-version: "0.1.1"
       - name: Check and build frontend
         run: |
+          set -euo pipefail
           caps --strict --ci
           yarn install --immutable
           caps verify --toolchain

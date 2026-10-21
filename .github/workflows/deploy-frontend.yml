@@ -66,6 +66,7 @@ jobs:
           CDN_ORIGIN: https://cos-sh.tiye.me
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          set -euo pipefail
           caps --strict --ci
           yarn install --immutable
           caps verify --toolchain
