@@ -19,9 +19,18 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
-使用者影响：前端 CLI/procs 配对更新到 0.30.1-alpha.5，js-ffi 使用正式 0.2.3；
-正式 0.30.1 tag 已存在，但 CLI assets/npm runtime 尚未齐备，不混用不完整的正式组合。
-鉴权、token/Cookie、snippet 字段和部署路径不变。本轮将旧 defatom 改为等价 defref，
+## 使用者影响：正式 Calcit 0.30.1
+
+前端 CLI/procs 配对正式 0.30.1，JS-FFI 固定已发布的 0.2.5。请重新安装完整模块图、
+生成 JS 并刷新，不混用旧 alpha 缓存。本轮不修改 Calcit Snapshot、Rust 源码/依赖/lock、
+UnionID schema、鉴权、token/Cookie、snippet 字段或部署路径。
+CI 的原检查命令补充 fail-fast/pipefail，前序安装、Clippy、类型或弃用门禁失败不会被后续
+构建成功掩盖；不新增验证脚本、预算、强转或 concurrently，COS 继续仅使用 action 内置 verify。
+不合并、部署前端/后端、发布 tag/npm 或启动生产服务。
+
+## 历史：此前已合并的前端源码迁移
+
+此前使用 0.30.1-alpha.5 / JS-FFI 0.2.3 配对，将旧 defatom 改为等价 defref，
 并明确可见性刷新回调返回 Unit，避免异步调用结果泄漏到事件回调。
 
 前端沿用 js-ffi 类型化浏览器接口。监听文档可见性变化时
@@ -39,15 +48,16 @@ yarn dev
 snippet 数组入口使用 `Array.isArray` 与 `js-cast` 检查，原有内容、ID 和时间字段校验保留。
 规范文件为 `calcit.cirru`、`deps.cirru`，不提交旧快照或生成的前端资源。
 
-本轮全定义 26/26、完整 strict、不可变安装与生产构建通过；Rust format/check/Clippy 和原有
+此前全定义 26/26、完整 strict、不可变安装与生产构建通过；Rust format/check/Clippy 和原有
 9 项测试通过。临时 Node 验证真实 URL 判断、数组 kind/身份和未登录 Unit 回调，不添加永久
 测试框架或验证脚本。前端没有定义附加测试，不以空测试选择声称测试通过。
 实际浏览器未登录界面正常且捕获的 warning/error 为空；合成账户登录与 token 保存仍待授权，
 未声称已完成登录后页面、剪贴板写入或持久化浏览器验收。
 
 Snapshot 中旧 `server` entry 仍指向同一浏览器函数，不是 Rust 后端入口，不应使用它启动服务。
-当前官方 CLI 缺少删除 entry 的接口，已反馈 [Calcit #2212](https://github.com/calcit-lang/calcit/issues/2212)，
-等待通用接口后清理，不手改 Snapshot 或新增项目专用重写规则。
+删除 entry 的通用接口需求原报 [Calcit #2212](https://github.com/calcit-lang/calcit/issues/2212)，
+现已作为重复项关闭并集中到仍开放的 [#2104](https://github.com/calcit-lang/calcit/issues/2104)
+（0.31.1 里程碑，并非已发布能力）。等待通用接口后清理，不手改 Snapshot 或新增项目专用重写规则。
 CI/前端部署 Actions 使用精确正式 tag，接受可移动 tag 风险；不修改独立 Rust release workflow。
 
 鉴权配置缺失或无效时后端会拒绝启动：
