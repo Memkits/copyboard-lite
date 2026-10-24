@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - prepare/copyboard-lite-public031
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -55,10 +56,22 @@ jobs:
           caps --strict --ci
           yarn install --immutable
           caps verify --toolchain
+          node prepare-source.mjs
           calcit edit format
-          git diff --exit-code -- calcit.cirru
+          test "$(git hash-object calcit.cirru)" = "$(cat acceptance/snapshot-blob.txt)"
           test ! -e compact.cirru
           test ! -e package.cirru
           yarn check
           calcit analyze weak-types --only deprecated-call --summary-only --format json | jq -e '.data.summary.calls == 0'
           yarn build
+      - name: Preserve official source preparation
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: copyboard-lite-source-prepared
+          path: |
+            calcit.cirru
+            acceptance
+            dist
+          if-no-files-found: error
+          retention-days: 3
