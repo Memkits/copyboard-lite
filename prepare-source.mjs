@@ -50,13 +50,22 @@ assert.deepEqual(before,normalizeSets(JSON.parse(readFileSync('acceptance/review
 writeFileSync('acceptance/content-type.json',run('query','type-at','app.lite/submit-content!','--path','@3.2.1.1.1','--format','json'));
 const expected=structuredClone(before),{ops,counts}=select(expected,true);
 assert.deepEqual(counts,{'option:unwrap':20,'option:unwrap-or':6,'option:some?':5,'count':2});assert.equal(ops.length,33);
+const boundaries=[['app.lite/login!',[4,1,1,2,1],'username-input'],['app.lite/login!',[4,1,1,3,1],'password-input'],['app.lite/submit-content!',[3,1,1,1],'input']];
+for(const [id,path,variable] of boundaries){
+  const def=expected.find(d=>d.id===id);let parent=def.code;
+  for(const i of path.slice(0,-1))parent=parent[i];
+  assert.deepEqual(parent[path.at(-1)],['.unwrap-or',['js-nullish->option',[variable,':value']],'|']);
+  const replacement=['browser/element-value',variable];parent[path.at(-1)]=replacement;
+  ops.push(['tree','replace',id,'--path','@'+path.join('.'),'--input-format','json-ast','--code',JSON.stringify(replacement),'--expect',`.unwrap-or (js-nullish->option (${variable} :value)) |`]);
+}
 writeFileSync('acceptance/before.json',JSON.stringify(before,null,2));
 writeFileSync('acceptance/operations.json',JSON.stringify(ops,null,2));writeFileSync('acceptance/counts.json',JSON.stringify(counts,null,2));
 const args=['edit','transaction','--file','acceptance/operations.json','--format','json'];
 const preview=JSON.parse(run(...args,'--dry-run'));assert.ok(preview.scoped_revision);
 writeFileSync('acceptance/preview.json',JSON.stringify(preview,null,2));writeFileSync('acceptance/applied.json',run(...args,'--expect-revision',preview.scoped_revision));
 assert.deepEqual(inventory(),expected);assert.deepEqual(q('config'),config);
+writeFileSync('acceptance/content-type-after.json',run('query','type-at','app.lite/submit-content!','--path','@3.2.1.1.1','--format','json'));
 assert.deepEqual(q('ns').namespaces.map(ns=>q('ns',ns)),namespaces);
 writeFileSync('acceptance/after.json',JSON.stringify(expected,null,2));
 writeFileSync('acceptance/snapshot-blob.txt',execFileSync('git',['hash-object','calcit.cirru'],{encoding:'utf8'}));
-console.log(JSON.stringify({guardedDefinitions:before.length,operations:ops.length,counts,unchanged:'arguments/defaults/schemas/FFI/metadata/imports/config and all attached tests/examples'}));
+console.log(JSON.stringify({guardedDefinitions:before.length,operations:ops.length,counts,checkedDomReads:3,unchanged:'all other arguments/defaults/schemas/FFI/metadata/imports/config and all attached tests/examples'}));
