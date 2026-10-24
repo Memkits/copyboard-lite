@@ -21,12 +21,18 @@ yarn dev
 
 ## 使用者影响：正式 Calcit 0.30.1
 
-前端 CLI/procs 配对正式 0.30.1，JS-FFI 固定已发布的 0.2.5。请重新安装完整模块图、
-生成 JS 并刷新，不混用旧 alpha 缓存。本轮不修改 Calcit Snapshot、Rust 源码/依赖/lock、
+前端 CLI/procs 配对正式 0.30.1，JS-FFI 固定已发布的 0.2.6。请重新安装完整模块图、
+生成 JS 并刷新，不混用旧 alpha 缓存。本轮修改前端公开调用写法，不修改 Rust 源码/依赖/lock、
 UnionID schema、鉴权、token/Cookie、snippet 字段或部署路径。
 CI 的原检查命令补充 fail-fast/pipefail，前序安装、Clippy、类型或弃用门禁失败不会被后续
 构建成功掩盖；不新增验证脚本、预算、强转或 concurrently，COS 继续仅使用 action 内置 verify。
 不合并、部署前端/后端、发布 tag/npm 或启动生产服务。
+
+清理33处旧Option/count调用，采用公开 `.unwrap` / `.unwrap-or` / `.some?` / `.len`。
+其中登录用户名、密码和提交内容的三处DOM取值改用已发布 `browser/element-value`，
+让真正的输入值受检为String，不再把DomElementHost当函数调用。
+正常输入框和鉴权协议不变；缺失或非String宿主值不再静默当空串，而是更早报告合同错误。
+原参数、回调、URL判断、数组验证和后端隔离保持，不新增unsafe或质量预算。
 
 ## 历史：此前已合并的前端源码迁移
 

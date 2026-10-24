@@ -56,7 +56,7 @@ jobs:
           yarn install --immutable
           caps verify --toolchain
           calcit edit format
-          git diff --exit-code -- calcit.cirru
+          git diff --quiet --exit-code -- calcit.cirru
           test ! -e compact.cirru
           test ! -e package.cirru
           yarn check
