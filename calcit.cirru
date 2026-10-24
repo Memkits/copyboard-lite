@@ -39,7 +39,7 @@
                 location $ browser/location-snapshot
                 hostname $ location :hostname
                 query $ shared/search-params-create $ location :search
-                environment $ option:unwrap-or (shared/search-params-get query |env) |
+                environment $ .unwrap-or (shared/search-params-get query |env) |
                 local-host? $ or (= hostname |localhost) (= hostname |127.0.0.1)
               if
                 and local-host? $ not= environment |prod
@@ -49,7 +49,7 @@
         'auth-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn auth-headers ()
             let
-                token $ option:unwrap-or (get-token) |
+                token $ .unwrap-or (get-token) |
                 headers $ shared/headers-create
               shared/headers-set! headers |Content-Type |application/json
               shared/headers-set! headers |Authorization $ str (shared/decode-uri-component |Bearer%20) token
@@ -83,7 +83,7 @@
                           match created-result
                             (:ok created)
                               let
-                                  input $ option:unwrap $ browser/query-selector |#content
+                                  input $ .unwrap $ browser/query-selector |#content
                                 let
                                     snippet-array $ checked-snippet-array @*snippets
                                   snippet-array .unshift! created
@@ -126,7 +126,7 @@
                   or (candidate .starts-with? |https://) (candidate .starts-with? |http://)
                   not $ candidate .includes? "| "
                   not $ candidate .includes? "|\t"
-                  = 1 $ count $ candidate .split-lines
+                  = 1 $ .len $ candidate .split-lines
                 try
                   let
                       url $ shared/url-snapshot $ shared/url-create candidate candidate
@@ -162,7 +162,7 @@
                           match snippets-result
                             (:ok snippets)
                               let
-                                  username $ option:unwrap-or (browser/storage-get |copyboard-lite-user) |
+                                  username $ .unwrap-or (browser/storage-get |copyboard-lite-user) |
                                 reset! *snippets snippets
                                 render-snippets! snippets
                                 show-board! username
@@ -180,14 +180,10 @@
             hint-fn $ {} $ :async true
             try
               let
-                  username-input $ option:unwrap $ browser/query-selector |#username
-                  password-input $ option:unwrap $ browser/query-selector |#password
-                  username $ option:unwrap-or
-                    js-nullish->option $ username-input :value
-                    , |
-                  password $ option:unwrap-or
-                    js-nullish->option $ password-input :value
-                    , |
+                  username-input $ .unwrap $ browser/query-selector |#username
+                  password-input $ .unwrap $ browser/query-selector |#password
+                  username $ browser/element-value username-input
+                  password $ browser/element-value password-input
                   headers $ shared/headers-create
                 shared/headers-set! headers |Content-Type |application/json
                 let
@@ -230,7 +226,7 @@
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (wire-events!)
             if
-              option:some? $ get-token
+              .some? $ get-token
               do (set-status! "|验证登录" |online) (load-snippets!)
               show-login!
             println |Copyboard-Lite-started
@@ -240,7 +236,7 @@
         'refresh-if-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn refresh-if-active! ()
             when
-              option:some? $ get-token
+              .some? $ get-token
               match (browser/visibility-state)
                 (:visible) (load-snippets!)
                 _ &unit
@@ -251,7 +247,7 @@
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if
-              option:some? $ get-token
+              .some? $ get-token
               load-snippets!
               show-login!
             println |Copyboard-Lite-reloaded
@@ -281,8 +277,8 @@
         'render-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-snippets! (snippets)
             let
-                container $ option:unwrap $ browser/query-selector |#snippets
-                empty-node $ option:unwrap $ browser/query-selector |#empty
+                container $ .unwrap $ browser/query-selector |#snippets
+                empty-node $ .unwrap $ browser/query-selector |#empty
                 snippet-array $ checked-snippet-array snippets
               browser/element-set-inner-html! container |
               browser/element-set-hidden! empty-node $ not= 0 $ snippet-array :length
@@ -301,11 +297,11 @@
                   browser/element-set-class-name! card |snippet
                   let
                       link $ link-href content
-                    if (option:some? link)
+                    if (.some? link)
                       let
                           anchor $ browser/create-element |a
                         browser/element-set-text-content! anchor content
-                        browser/element-set-attribute! anchor |href $ option:unwrap link
+                        browser/element-set-attribute! anchor |href $ .unwrap link
                         browser/element-set-attribute! anchor |target |_blank
                         browser/element-set-attribute! anchor |rel "|noopener noreferrer"
                         browser/append-child! text-node anchor
@@ -337,7 +333,7 @@
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label state)
             let
-                target $ option:unwrap $ browser/query-selector |#status
+                target $ .unwrap $ browser/query-selector |#status
               browser/element-set-text-content! target label
               browser/element-set-class-name! target $ str |status | state
           :examples $ []
@@ -346,10 +342,10 @@
         'show-board! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-board! (username)
             let
-                login-panel $ option:unwrap $ browser/query-selector |#login-panel
-                board $ option:unwrap $ browser/query-selector |#board
-                current-user $ option:unwrap $ browser/query-selector |#current-user
-                input $ option:unwrap $ browser/query-selector |#content
+                login-panel $ .unwrap $ browser/query-selector |#login-panel
+                board $ .unwrap $ browser/query-selector |#board
+                current-user $ .unwrap $ browser/query-selector |#current-user
+                input $ .unwrap $ browser/query-selector |#content
               browser/element-set-hidden! login-panel true
               browser/element-set-hidden! board false
               browser/element-set-text-content! current-user username
@@ -360,8 +356,8 @@
         'show-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-login! ()
             let
-                login-panel $ option:unwrap $ browser/query-selector |#login-panel
-                board $ option:unwrap $ browser/query-selector |#board
+                login-panel $ .unwrap $ browser/query-selector |#login-panel
+                board $ .unwrap $ browser/query-selector |#board
               browser/element-set-hidden! login-panel false
               browser/element-set-hidden! board true
               set-status! "|请登录" |
@@ -370,8 +366,8 @@
             :args $ []
         'store-renewed-token! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn store-renewed-token! (token)
-            when (option:some? token)
-              browser/storage-set! |copyboard-lite-token $ option:unwrap token
+            when (.some? token)
+              browser/storage-set! |copyboard-lite-token $ .unwrap token
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -379,12 +375,10 @@
         'submit-content! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn submit-content! ()
             let
-                input $ option:unwrap $ browser/query-selector |#content
-                content $ option:unwrap-or
-                  js-nullish->option $ input :value
-                  , |
+                input $ .unwrap $ browser/query-selector |#content
+                content $ browser/element-value input
               when
-                > (count content) 0
+                > (.len content) 0
                 do (set-status! "|保存中" |online) (create-snippet! content)
               , &unit
           :examples $ []
@@ -394,11 +388,11 @@
         'wire-events! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wire-events! ()
             let
-                login-form $ option:unwrap $ browser/query-selector |#login-form
-                form $ option:unwrap $ browser/query-selector |#snippet-form
-                input $ option:unwrap $ browser/query-selector |#content
-                refresh $ option:unwrap $ browser/query-selector |#refresh
-                logout-button $ option:unwrap $ browser/query-selector |#logout
+                login-form $ .unwrap $ browser/query-selector |#login-form
+                form $ .unwrap $ browser/query-selector |#snippet-form
+                input $ .unwrap $ browser/query-selector |#content
+                refresh $ .unwrap $ browser/query-selector |#refresh
+                logout-button $ .unwrap $ browser/query-selector |#logout
               browser/element-add-event-listener! login-form |submit $ fn (event) (event .prevent-default!) (login!) &unit
               browser/element-add-event-listener! form |submit $ fn (event) (event .prevent-default!) (submit-content!)
               browser/element-add-event-listener! input |keydown $ fn (event)

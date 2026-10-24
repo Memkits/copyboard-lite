@@ -83,6 +83,14 @@ jobs:
           echo "prefix=${asset_prefix}" >> "$GITHUB_OUTPUT"
           echo "base-url=${VITE_BASE_URL}" >> "$GITHUB_OUTPUT"
           yarn build
+      - name: Preserve PR frontend for acceptance
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: copyboard-lite-pr-frontend
+          path: dist
+          if-no-files-found: error
+          retention-days: 3
       - name: Upload static assets to COS
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
         uses: worktools/cos-upload-action@v1.2.0
