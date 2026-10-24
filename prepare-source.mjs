@@ -56,7 +56,7 @@ for(const [id,path,variable] of boundaries){
   for(const i of path.slice(0,-1))parent=parent[i];
   assert.deepEqual(parent[path.at(-1)],['.unwrap-or',['js-nullish->option',[variable,':value']],'|']);
   const replacement=['browser/element-value',variable];parent[path.at(-1)]=replacement;
-  ops.push(['tree','replace',id,'--path','@'+path.join('.'),'--input-format','json-ast','--code',JSON.stringify(replacement),'--expect',`.unwrap-or (js-nullish->option (${variable} :value)) |`]);
+  ops.push(['tree','replace',id,'--path','@'+path.join('.'),'--input-format','json-ast','--code',JSON.stringify(replacement),'--expect',`quote (.unwrap-or (js-nullish->option (${variable} :value)) |)`]);
 }
 writeFileSync('acceptance/before.json',JSON.stringify(before,null,2));
 writeFileSync('acceptance/operations.json',JSON.stringify(ops,null,2));writeFileSync('acceptance/counts.json',JSON.stringify(counts,null,2));
