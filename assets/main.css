@@ -1,10 +1,25 @@
+/* Respo UI reads its tokens from --rui-* variables. `html:root` outranks the
+   `:root` rule Respo UI injects at runtime, so these overrides stay in effect. */
+html:root {
+  --rui-color-primary: #794b68;
+  --rui-color-primary-hover: #633c55;
+  --rui-color-primary-active: #52314a;
+  --rui-color-primary-soft: #f6eff3;
+  --rui-color-primary-border: #dcc6d3;
+  --rui-color-focus: #b98aa7;
+  --rui-color-text: #24212b;
+  --rui-color-border: #e6e2e6;
+  --rui-color-border-strong: #d6d2d8;
+  --rui-color-border-hover: #aaa3ad;
+  --rui-radius-md: 4px;
+  --rui-font-sans: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
 :root {
   --ink: #24212b;
   --muted: #73717a;
   --line: #e6e2e6;
   --accent: #794b68;
-  --accent-strong: #633c55;
-  --accent-soft: #f6eff3;
   color: var(--ink);
   background: #fff;
   font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -13,10 +28,9 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #fff; }
 button, input, textarea { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 #app { min-height: 100vh; background: #fff; }
 .shell {
@@ -44,9 +58,9 @@ header { min-height: 54px; gap: 12px; padding: 10px 24px; border-bottom: 1px sol
 .brand-mark span { position: absolute; width: 10px; height: 12px; border: 1px solid #fff; border-radius: 1px; }
 .brand-mark span:first-child { top: 5px; left: 7px; }
 .brand-mark span:last-child { top: 9px; left: 11px; background: var(--accent); }
-.eyebrow, .section-kicker { margin: 0; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+.section-kicker { margin: 0; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
 h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.03em; line-height: 1.15; white-space: nowrap; }
-h1 span { color: var(--muted); font-weight: 400; }
+h1 .lite { color: var(--muted); font-weight: 400; }
 
 .status {
   flex: none;
@@ -60,87 +74,65 @@ h1 span { color: var(--muted); font-weight: 400; }
 .status.online { color: #20664a; }
 .status.error { color: #a13b51; }
 
-#board { padding: 10px 24px 40px; }
+.board { padding: 10px 24px 40px; }
 .login-panel { max-width: 560px; padding: 52px 24px 64px; }
 .login-panel h2 { margin: 12px 0 10px; font-size: clamp(30px, 4vw, 36px); font-weight: 620; letter-spacing: -.05em; line-height: 1.14; }
 .login-panel p { max-width: 350px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
 
-form { display: grid; margin: 20px 0 0; }
-label { margin: 17px 0 8px; color: var(--ink); font-size: 13px; font-weight: 600; }
-input, textarea {
-  width: 100%;
-  border: 1px solid #d6d2d8;
-  border-radius: 3px;
-  color: var(--ink);
-  background: #fff;
-  outline: 0;
-  transition: border-color 140ms ease, background-color 140ms ease;
-}
-input { min-height: 50px; padding: 12px 14px; }
-textarea { min-height: 140px; padding: 16px; resize: vertical; line-height: 1.55; }
-input::placeholder, textarea::placeholder { color: #939099; opacity: 1; }
-input:hover, textarea:hover { border-color: #aaa3ad; }
-input:focus, textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent-soft); outline-offset: 0; }
+.login-form { display: grid; margin: 20px 0 0; }
+.login-form label { margin: 17px 0 8px; color: var(--ink); font-size: 13px; font-weight: 600; }
+.login-form input { width: 100%; height: var(--rui-control-lg); }
+.login-form .login-submit { width: 100%; height: var(--rui-control-lg); margin-top: 24px; }
 
-button {
-  min-height: 44px;
-  padding: 11px 18px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: #fff;
-  background: var(--accent);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 650;
-  transition: background-color 140ms ease, border-color 140ms ease;
+/* Shared size modifier for secondary actions; `button.` outranks the
+   single-class Respo UI button rule. */
+button.btn-sm {
+  min-width: 0;
+  height: var(--rui-control-sm);
+  padding-inline: var(--rui-control-sm-padding);
+  font-size: var(--rui-text-sm);
 }
-button:hover { background: var(--accent-strong); }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.login-panel form > button { justify-self: stretch; margin-top: 24px; min-height: 50px; }
-.ghost { border-color: var(--line); color: var(--ink); background: #fff; }
-.ghost:hover { border-color: #bcb5be; background: #f8f6f8; }
 
 .user-bar { gap: 12px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
 .account-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .account-label strong { overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.account-avatar { display: none; }
-.icon-button { display: grid; flex: none; place-items: center; width: 40px; height: 40px; min-height: 40px; padding: 0; border: 1px solid transparent; border-radius: 3px; color: var(--muted); background: transparent; }
-.icon-button:hover { color: var(--accent); background: var(--accent-soft); }
-.icon-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-#snippet-form { margin: 0; }
-#snippet-form textarea { min-height: 64px; padding: 12px 14px; resize: vertical; background: #fbfafb; }
-#snippet-form textarea:focus { min-height: 96px; background: #fff; }
+.composer-input { display: block; width: 100%; min-height: 64px; resize: vertical; }
 .composer-actions { gap: 14px; margin-top: 6px; }
 .composer-actions > span { color: var(--muted); font-size: 12px; }
-.composer-actions button { min-width: 88px; min-height: 40px; padding: 8px 14px; }
-.composer-actions button span { margin-left: 8px; color: inherit; font-size: 17px; font-weight: 400; }
 
 .section-title { gap: 16px; margin: 12px 0 2px; }
 .section-title h2 { margin: 0; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
 .snippets { display: grid; border-top: 1px solid var(--line); }
-.snippets:empty { border-top: 0; }
 .snippet {
   padding: 12px 2px 8px;
   border-bottom: 1px solid var(--line);
   background: #fff;
-  content-visibility: auto;
-  contain-intrinsic-size: 88px;
   transition: background-color 140ms ease;
 }
 .snippet:hover { background: #fcfafb; }
 .snippet p { margin: 0 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.55; }
 .snippet p a { color: var(--accent); text-decoration: underline; text-decoration-color: #bd9eaf; text-underline-offset: 3px; }
-.snippet p a:hover { color: var(--accent-strong); text-decoration-color: currentColor; }
+.snippet p a:hover { color: var(--rui-color-primary-hover); text-decoration-color: currentColor; }
 .snippet p a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.snippet-actions { gap: 4px; justify-content: flex-end; }
+
+/* Long content: clamped to about six lines; expanded content keeps a height
+   limit and scrolls inside the item instead of stretching the list. */
+.snippet-body.is-collapsed {
+  max-height: 9.6em;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+  mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+.snippet-body.is-expanded {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.snippet-actions { gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .snippet time { margin-right: auto; color: var(--muted); font-size: 11px; }
-.snippet-actions button { display: grid; place-items: center; width: 36px; height: 36px; min-height: 36px; padding: 0; overflow: hidden; border-color: transparent; color: #5f5b65; background: transparent; font-size: 0; white-space: nowrap; }
-.snippet-actions button::before { display: block; width: 18px; height: 18px; background: currentColor; content: ""; mask: url('/assets/copy.svg') center / contain no-repeat; }
-.snippet-actions button:hover { color: var(--accent); background: var(--accent-soft); }
-.snippet-actions .remove { color: #966078; }
-.snippet-actions .remove::before { mask-image: url('/assets/trash.svg'); }
-.snippet-actions .remove:hover { color: var(--accent-strong); background: var(--accent-soft); }
 .empty { margin: 0; padding: 28px 16px; border-top: 1px solid var(--line); color: var(--muted); text-align: center; }
 
 @media (max-width: 600px) {
@@ -150,27 +142,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .brand-mark span:first-child { top: 4px; left: 6px; }
   .brand-mark span:last-child { top: 8px; left: 10px; }
   h1 { font-size: 15px; }
-  #board { padding: 8px max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .board { padding: 8px max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .login-panel { padding: 40px max(18px, env(safe-area-inset-right)) 42px max(18px, env(safe-area-inset-left)); }
   .login-panel h2 { font-size: 32px; }
   .user-bar { margin-bottom: 4px; }
-  #snippet-form textarea { min-height: 62px; padding: 11px 12px; }
-  #snippet-form textarea:focus { min-height: 90px; }
+  .composer-input { min-height: 62px; }
   .composer-actions { margin-top: 5px; }
   .composer-actions > span { font-size: 11px; }
-  .composer-actions button { min-height: 44px; }
   .section-title { margin-top: 10px; }
   .snippet { padding: 10px 2px 6px; }
   .snippet p { margin-bottom: 3px; font-size: 14px; }
-  .snippet-actions button { width: 42px; height: 42px; min-height: 42px; }
 }
 
-@media (max-width: 380px) {
-  .eyebrow { display: none; }
-  h1 { font-size: 14px; }
-  .snippet time { font-size: 10px; }
-  .snippet-actions { gap: 2px; }
+@media (pointer: coarse) {
+  button.btn-sm { height: var(--rui-control-md); padding-inline: var(--rui-control-md-padding); }
 }
-
-@media (pointer: coarse) { button { min-height: 44px; } }
-@media (prefers-reduced-motion: reduce) { button, input, textarea, .snippet { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .snippet { transition: none; } }
