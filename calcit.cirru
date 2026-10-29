@@ -2,12 +2,8 @@
 {}
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
-  :entries $ {}
-    :default $ {} (:description |) (:init-fn 'app.lite/main!) (:mode :js) (:reload-fn 'app.lite/reload!) (:target :browser)
-      :feature-policy $ {}
-      :modules $ [] |js-ffi/
-      :type-slots $ {}
-    :server $ {} (:description |) (:init-fn 'app.lite/main!) (:mode :native) (:reload-fn 'app.lite/reload!) (:target :browser)
+  :entries $ {} $ :default
+    {} (:description |) (:init-fn 'app.lite/main!) (:mode :js) (:reload-fn 'app.lite/reload!) (:target :browser)
       :feature-policy $ {}
       :modules $ [] |js-ffi/
       :type-slots $ {}
@@ -17,22 +13,17 @@
         '*snippets $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defref *snippets (empty-snippets-js)
           :examples $ []
-          :schema $ :: 'Ref 'JsObject
+          :schema $ quote $ Ref JsObject
         'SnippetArrayHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait SnippetArrayHost (:length 'Number)
-            .for-each! $ :: 'Fn $ {}
-              :args $ [] 'app.lite/SnippetArrayHost $ :: 'Fn
-                {}
-                  :args $ [] 'JsObject 'Number 'JsObject
-                  :return 'Unit
-              :return 'Unit
-            .unshift! $ :: 'Fn $ {}
-              :args $ [] 'app.lite/SnippetArrayHost 'JsObject
-              :return 'Number
+            .for-each! $ quote $ Fn app.lite/SnippetArrayHost
+              Fn JsObject Number JsObject $ -> Unit
+              -> Unit
+            .unshift! $ quote $ Fn app.lite/SnippetArrayHost JsObject (-> Number)
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
             :names $ {} (:for-each! |forEach) (:unshift! |unshift)
-          :schema $ :: 'Trait
+          :schema $ quote Trait
         'api-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-base
             let
@@ -45,7 +36,7 @@
                 and local-host? $ not= environment |prod
                 , |http://127.0.0.1:11030 |https://cp.chenyong.life
           :examples $ []
-          :schema $ :: 'String
+          :schema $ quote String
         'auth-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn auth-headers ()
             let
@@ -55,18 +46,14 @@
               shared/headers-set! headers |Authorization $ str (shared/decode-uri-component |Bearer%20) token
               , headers
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'js-ffi.shared/HeadersHost)
-            :args $ []
+          :schema $ quote $ Fn (-> js-ffi.shared/HeadersHost)
         'checked-snippet-array $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn checked-snippet-array (value)
             if (js/Array.isArray value) (js-cast value 'app.lite/SnippetArrayHost) (raise |Expected-snippets-array)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.lite/SnippetArrayHost)
-            :args $ [] 'JsObject
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn JsObject (-> app.lite/SnippetArrayHost) (:features :js-ffi)
         'create-snippet! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn create-snippet! (content)
-            hint-fn $ {} $ :async true
+          :code $ quote $ defn create-snippet! (content) (hint-fn Async)
             try
               let
                   headers $ auth-headers
@@ -96,27 +83,21 @@
                   (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
-            :args $ [] 'String
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn String (-> Unit) (:features :js-ffi) (:async)
         'empty-snippets-js $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn empty-snippets-js () (js-array)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'JsObject)
-            :args $ []
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn (-> JsObject) (:features :js-ffi)
         'get-token $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-token () (browser/storage-get |copyboard-lite-token)
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :args $ []
-            :return $ :: 'calcit.core/Option 'String
+          :schema $ quote $ Fn
+            -> $ calcit.core/Option String
         'handle-response-failure! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-response-failure! (status label)
             if (= 401 status) (logout!) (set-status! label |error)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'Number 'String
+          :schema $ quote $ Fn Number String (-> Unit)
         'link-href $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn link-href (content)
             let
@@ -141,13 +122,11 @@
                   fn (_error) (Option :none)
                 Option :none
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :args $ [] 'String
-            :features $ #{} :js-ffi
-            :return $ :: 'Option 'String
+          :schema $ quote $ Fn String
+            -> $ Option String
+            :features :js-ffi
         'load-snippets! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn load-snippets! ()
-            hint-fn $ {} $ :async true
+          :code $ quote $ defn load-snippets! () (hint-fn Async)
             try
               let
                   headers $ auth-headers
@@ -172,12 +151,9 @@
                   (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
-            :args $ []
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi) (:async)
         'login! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn login! ()
-            hint-fn $ {} $ :async true
+          :code $ quote $ defn login! () (hint-fn Async)
             try
               let
                   username-input $ .unwrap $ browser/query-selector |#username
@@ -212,17 +188,14 @@
                     (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
-            :args $ []
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi) (:async)
         'logout! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn logout! () (browser/storage-remove! |copyboard-lite-token) (browser/storage-remove! |copyboard-lite-user)
             reset! *snippets $ empty-snippets-js
             render-snippets! @*snippets
             show-login!
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
+          :schema $ quote $ Fn (-> Unit)
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (wire-events!)
             if
@@ -231,8 +204,7 @@
               show-login!
             println |Copyboard-Lite-started
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
+          :schema $ quote $ Fn (-> Unit)
         'refresh-if-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn refresh-if-active! ()
             when
@@ -242,8 +214,7 @@
                 _ &unit
             , &unit
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
+          :schema $ quote $ Fn (-> Unit)
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if
@@ -252,11 +223,9 @@
               show-login!
             println |Copyboard-Lite-reloaded
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
+          :schema $ quote $ Fn (-> Unit)
         'remove-snippet! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn remove-snippet! (id)
-            hint-fn $ {} $ :async true
+          :code $ quote $ defn remove-snippet! (id) (hint-fn Async)
             try
               let
                   headers $ auth-headers
@@ -271,9 +240,7 @@
                   (:err error) (raise error)
               fn (error) (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:async true) (:return 'Unit)
-            :args $ [] 'Number
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn Number (-> Unit) (:features :js-ffi) (:async)
         'render-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-snippets! (snippets)
             let
@@ -327,9 +294,7 @@
                   browser/append-child! container card
                   , &unit
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'JsObject
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn JsObject (-> Unit) (:features :js-ffi)
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label state)
             let
@@ -337,8 +302,7 @@
               browser/element-set-text-content! target label
               browser/element-set-class-name! target $ str |status | state
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'String 'String
+          :schema $ quote $ Fn String String (-> Unit)
         'show-board! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-board! (username)
             let
@@ -351,8 +315,7 @@
               browser/element-set-text-content! current-user username
               browser/element-focus! input
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'String
+          :schema $ quote $ Fn String (-> Unit)
         'show-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn show-login! ()
             let
@@ -362,16 +325,14 @@
               browser/element-set-hidden! board true
               set-status! "|请登录" |
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
+          :schema $ quote $ Fn (-> Unit)
         'store-renewed-token! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn store-renewed-token! (token)
             when (.some? token)
               browser/storage-set! |copyboard-lite-token $ .unwrap token
             , &unit
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] $ :: 'Option 'String
+          :schema $ quote $ Fn (Option String) (-> Unit)
         'submit-content! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn submit-content! ()
             let
@@ -382,9 +343,7 @@
                 do (set-status! "|保存中" |online) (create-snippet! content)
               , &unit
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
         'wire-events! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wire-events! ()
             let
@@ -410,9 +369,7 @@
               browser/add-event-listener! |focus $ fn (_event) (refresh-if-active!)
               browser/add-event-listener! |online $ fn (_event) (refresh-if-active!)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
-            :features $ #{} :js-ffi
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.lite
           :require (js-ffi.browser :as browser) (js-ffi.shared :as shared) (js-ffi.contract :as contract)
