@@ -19,7 +19,20 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
-## 使用者影响：正式 Calcit 0.32.0
+## 使用者影响：Respo + Respo UI 界面
+
+前端改为 Respo 组件树（`app.schema`、`app.updater`、`app.comp`、`app.lite`），按钮、输入框和文本框统一使用
+Respo UI 0.9.0（`comp-button` 及 `respo-ui.css`），主题色通过 `assets/main.css` 中的 `--rui-*` 变量覆盖为原有紫色。
+`index.html` 只保留 `#app` 挂载点。工具链升级为 Calcit 0.32.1 / `@calcit/procs` 0.32.1，依赖 Respo 0.17.1、JS-FFI 0.2.9；
+Respo UI 引用的 `cirru-color`、`copy-text-to-clipboard`、`dayjs` 作为前端依赖加入。
+
+超过约 6 行（或 360 字）的内容默认折叠并淡出，点击内容或“展开”后最多显示 520px（不超过 60vh），
+其余部分在条目内部滚动，“收起”恢复折叠。
+
+鉴权行为不变：token 与用户名保存在 localStorage，每次请求带 Bearer header 并保存 `x-copyboard-token` 续期，
+只在 401 时退出；页面重新可见、获得焦点或恢复联网时自动刷新。Rust 后端、协议和数据库不变。
+
+## 历史：正式 Calcit 0.32.0
 
 前端 CLI/procs 配对正式 0.32.0，JS-FFI 固定已发布的 0.2.8。请安装完整模块图、
 重新生成 JS 并刷新。本次将类型标注迁为 quoted 类型表达式；24 个定义的 schema 保持。
