@@ -6,7 +6,7 @@
     {} (:description |) (:init-fn 'app.lite/main!) (:mode :js) (:reload-fn 'app.lite/reload!) (:target :browser)
       :feature-policy $ {}
       :modules $ [] |js-ffi/ |respo-router.calcit/ |respo.calcit/ |respo-ui.calcit/
-      :type-slots $ {} $ :dispatch-op |app.schema/Op
+      :type-slots $ {} $ :dispatch-op 'app.schema/Op
   :files $ {}
     'app.comp $ %{} 'FileEntry
       :defs $ {}
@@ -219,7 +219,7 @@
           :schema $ quote $ Ref app.schema/Store
         'SnippetArrayHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait SnippetArrayHost (:length 'Number)
-            .for-each! $ quote $ Fn app.lite/SnippetArrayHost
+            .for-each! $ Fn app.lite/SnippetArrayHost
               Fn JsObject Number JsObject $ -> Unit
               -> Unit
           :examples $ []
@@ -305,8 +305,7 @@
           :doc "|Validate the backend snippet array into an immutable list, keeping order."
           :code $ quote $ defn decode-snippets (value)
             let
-                *result $ ref $ assert-type ([])
-                  quote $ List app.schema/Snippet
+                *result $ ref $ assert-type ([]) (List app.schema/Snippet)
               .for-each! (checked-snippet-array value)
                 fn (raw-snippet _index _array)
                   swap! *result $ fn (xs)
@@ -534,19 +533,19 @@
       :defs $ {}
         'Op $ %{} 'CodeEntry
           :doc "|Application operations dispatched from Respo events. Effect ops are handled by app.lite/dispatch! before the pure updater."
-          :code $ quote $ defenum Op (:draft 'String) (:username 'String) (:password 'String) (:toggle-expand 'Number) (:submit) (:login) (:logout) (:refresh) (:remove 'Number) (:copy 'String)
+          :code $ quote $ defenum Op (:draft String) (:username String) (:password String) (:toggle-expand Number) (:submit) (:login) (:logout) (:refresh) (:remove Number) (:copy String)
           :examples $ []
           :schema $ quote EnumDef
         'Snippet $ %{} 'CodeEntry
           :doc "|One clipboard item decoded from the backend JSON."
-          :code $ quote $ defstruct Snippet (:id 'Number) (:content 'String) (:created-at 'Number)
+          :code $ quote $ defstruct Snippet (:id Number) (:content String) (:created-at Number)
           :examples $ []
           :schema $ quote StructDef
         'Store $ %{} 'CodeEntry
           :doc "|Whole UI state rendered by app.comp/comp-container."
-          :code $ quote $ defstruct Store (:logged-in? 'Bool) (:user 'String) (:status 'String) (:status-kind 'String) (:draft 'String) (:username 'String) (:password 'String)
-            :snippets $ quote $ List app.schema/Snippet
-            :expanded $ quote $ Set Number
+          :code $ quote $ defstruct Store (:logged-in? Bool) (:user String) (:status String) (:status-kind String) (:draft String) (:username String) (:password String)
+            :snippets $ List app.schema/Snippet
+            :expanded $ Set Number
           :examples $ []
           :schema $ quote StructDef
         'store $ %{} 'CodeEntry
