@@ -24,7 +24,7 @@
                     {} $ :class-name |account-label
                     strong $ {} $ :inner-text (:user store)
                   comp-button "|退出登录" $ opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
-                    d! $ :: :logout
+                    d! $ app.schema/Op :logout
                 div
                   {} $ :class-name |composer
                   textarea $ {} (:id |content) (:rows 2)
@@ -33,7 +33,7 @@
                     :class-name $ str-spaced css/textarea |composer-input
                     :aria-label "|添加到剪贴板"
                     :on-input $ fn (e d!)
-                      d! $ :: :draft $ event-value e
+                      d! $ app.schema/Op :draft $ event-value e
                     :on-keydown $ fn (e d!)
                       let
                           info $ keyboard-info e
@@ -41,17 +41,17 @@
                           and
                             = |Enter $ :key info
                             or (:meta? info) (:ctrl? info)
-                          d! $ :: :submit
+                          d! $ app.schema/Op :submit
                   div
                     {} $ :class-name |composer-actions
                     span $ {} $ :inner-text "|⌘ / Ctrl + Enter"
                     comp-button "|保存" $ opts ButtonOptions :kind :primary :on-click $ dispatch-fn (_e d!)
-                      d! $ :: :submit
+                      d! $ app.schema/Op :submit
                 div
                   {} $ :class-name |section-title
                   h2 $ {} $ :inner-text "|最近内容"
                   comp-button "|刷新" $ opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
-                    d! $ :: :refresh
+                    d! $ app.schema/Op :refresh
                 if (empty? snippets)
                   p $ {} (:class-name |empty) (:inner-text "|还没有内容，先保存第一条吧。")
                   list->
@@ -61,7 +61,7 @@
                         hint-fn $ Fn app.schema/Snippet $ -> String
                         str $ :id snippet
                       fn (snippet _idx)
-                        hint-fn $ Fn app.schema/Snippet Number $ -> Dynamic
+                        hint-fn $ Fn app.schema/Snippet Number $ -> respo.schema/Component
                         comp-snippet snippet $ includes? expanded $ :id snippet
           :examples $ []
           :schema $ quote $ Fn app.schema/Store (-> respo.schema/Component)
@@ -104,7 +104,7 @@
                   :placeholder "|输入用户名"
                   :class-name css/input
                   :on-input $ fn (e d!)
-                    d! $ :: :username $ event-value e
+                    d! $ app.schema/Op :username $ event-value e
                 create-element :label $ {} (:for |password) (:inner-text "|密码")
                 input $ {} (:id |password) (:type |password)
                   :value $ :password store
@@ -112,13 +112,13 @@
                   :placeholder "|输入密码"
                   :class-name css/input
                   :on-input $ fn (e d!)
-                    d! $ :: :password $ event-value e
+                    d! $ app.schema/Op :password $ event-value e
                   :on-keydown $ fn (e d!)
                     when
                       = |Enter $ :key $ keyboard-info e
-                      d! $ :: :login
+                      d! $ app.schema/Op :login
                 comp-button "|登录" $ opts ButtonOptions :kind :primary :class-name |login-submit :on-click $ dispatch-fn (_e d!)
-                  d! $ :: :login
+                  d! $ app.schema/Op :login
           :examples $ []
           :schema $ quote $ Fn app.schema/Store (-> respo.schema/Component)
         'comp-snippet $ %{} 'CodeEntry
@@ -140,7 +140,7 @@
                     :on-click $ fn (_e d!)
                       when
                         and long? $ not expanded?
-                        d! $ :: :toggle-expand id
+                        d! $ app.schema/Op :toggle-expand id
                   p ({})
                     if (.some? link)
                       a $ {}
@@ -156,12 +156,12 @@
                   if long?
                     comp-button (if expanded? "|收起" "|展开")
                       opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
-                        d! $ :: :toggle-expand id
+                        d! $ app.schema/Op :toggle-expand id
                     span $ {}
                   comp-button "|复制" $ opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
-                    d! $ :: :copy content
+                    d! $ app.schema/Op :copy content
                   comp-button "|删除" $ opts ButtonOptions :kind :danger-outline :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
-                    d! $ :: :remove id
+                    d! $ app.schema/Op :remove id
           :examples $ []
           :schema $ quote $ Fn app.schema/Snippet Bool (-> respo.schema/Component) (:features :js-ffi)
         'link-href $ %{} 'CodeEntry

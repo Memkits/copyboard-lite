@@ -19,7 +19,13 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
-## 使用者影响：Respo + Respo UI 界面
+## 使用者影响：Calcit 0.38.0
+
+将 Calcit CLI 和 `@calcit/procs` 一起升级到正式 0.38.0，重新安装依赖、构建并刷新前端。
+登录、条目展开和保存等界面操作使用既有的具名 `Op`，列表渲染回调返回具体的 Respo `Component`。
+服务地址、鉴权协议、存储与 Rust 后端保持。前端预览使用 COS action v1.3.0 的内置校验。
+
+## 历史：Respo + Respo UI 界面
 
 前端改为 Respo 组件树（`app.schema`、`app.updater`、`app.comp`、`app.lite`），按钮、输入框和文本框统一使用
 Respo UI 0.15.2（`comp-button` 及 `respo-ui.css`），主题色通过 `assets/main.css` 中的 `--rui-*` 变量覆盖为原有紫色。
