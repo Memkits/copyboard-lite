@@ -22,8 +22,8 @@ yarn dev
 ## 使用者影响：Respo + Respo UI 界面
 
 前端改为 Respo 组件树（`app.schema`、`app.updater`、`app.comp`、`app.lite`），按钮、输入框和文本框统一使用
-Respo UI 0.9.0（`comp-button` 及 `respo-ui.css`），主题色通过 `assets/main.css` 中的 `--rui-*` 变量覆盖为原有紫色。
-`index.html` 只保留 `#app` 挂载点。工具链升级为 Calcit 0.32.1 / `@calcit/procs` 0.32.1，依赖 Respo 0.17.1、JS-FFI 0.2.9；
+Respo UI 0.15.2（`comp-button` 及 `respo-ui.css`），主题色通过 `assets/main.css` 中的 `--rui-*` 变量覆盖为原有紫色。
+`index.html` 只保留 `#app` 挂载点。工具链升级为 Calcit 0.37.0 / `@calcit/procs` 0.37.0，依赖 Respo 0.19.5、JS-FFI 0.2.13；
 Respo UI 引用的 `cirru-color`、`copy-text-to-clipboard`、`dayjs` 作为前端依赖加入。
 
 超过约 6 行（或 360 字）的内容默认折叠并淡出，点击内容或“展开”后最多显示 520px（不超过 60vh），
