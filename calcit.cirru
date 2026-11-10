@@ -80,7 +80,10 @@
                   h1 ({}) (<> |Copyboard)
                     span $ {} (:class-name |lite) (:inner-text "| Lite")
                 span $ {}
-                  :class-name $ str-spaced |status $ :status-kind store
+                  :class-name $ match (:status-kind store)
+                    (:idle) |status
+                    (:online) "|status online"
+                    (:error) "|status error"
                   :inner-text $ :status store
               if (:logged-in? store) (comp-board store) (comp-login store)
           :examples $ []
@@ -255,7 +258,8 @@
           :examples $ []
           :schema $ quote $ Fn JsObject (-> app.lite/SnippetArrayHost) (:features :js-ffi)
         'copy-content! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn copy-content! (content) (browser/clipboard-write-text! content) (set-status! "|已复制" |online)
+          :code $ quote $ defn copy-content! (content) (browser/clipboard-write-text! content)
+            set-status! "|已复制" $ StatusKind :online
           :examples $ []
           :schema $ quote $ Fn String (-> Unit)
         'create-snippet! $ %{} 'CodeEntry (:doc |)
@@ -283,11 +287,12 @@
                                     .assoc :snippets $ prepend (:snippets store) snippet
                                     .assoc :draft |
                                 focus-composer!
-                                set-status! "|已保存" |online
+                                set-status! "|已保存" $ StatusKind :online
                             (:err error) (raise error)
                         handle-response-failure! (response :status) "|保存失败"
                   (:err error) (raise error)
-              fn (error) (shared/console-error! |Failed-to-create-snippet) (set-status! "|保存失败" |error)
+              fn (error) (shared/console-error! |Failed-to-create-snippet)
+                set-status! "|保存失败" $ StatusKind :error
           :examples $ []
           :schema $ quote $ Fn String (-> Unit) (:features :js-ffi) (:async)
         'decode-snippet $ %{} 'CodeEntry
@@ -326,7 +331,9 @@
               (:login) (login!)
               (:logout) (logout!)
               (:refresh)
-                do (set-status! "|刷新中" |online) (load-snippets!)
+                do
+                  set-status! "|刷新中" $ StatusKind :online
+                  load-snippets!
               (:remove id) (remove-snippet! id)
               (:copy content) (copy-content! content)
               _ $ reset! *store $ updater @*store op
@@ -347,7 +354,8 @@
             -> $ calcit.core/Option String
         'handle-response-failure! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-response-failure! (status label)
-            if (= 401 status) (logout!) (set-status! label |error)
+            if (= 401 status) (logout!)
+              set-status! label $ StatusKind :error
           :examples $ []
           :schema $ quote $ Fn Number String (-> Unit)
         'load-snippets! $ %{} 'CodeEntry (:doc |)
@@ -371,11 +379,12 @@
                                 swap! *store $ fn (store)
                                   hint-fn $ Fn app.schema/Store $ -> app.schema/Store
                                   -> store (.assoc :snippets items) (.assoc :logged-in? true) (.assoc :user username)
-                                set-status! "|已同步" |online
+                                set-status! "|已同步" $ StatusKind :online
                             (:err error) (raise error)
                         handle-response-failure! (response :status) "|加载失败"
                   (:err error) (raise error)
-              fn (error) (shared/console-error! |Failed-to-load-snippets) (set-status! "|连接失败" |error)
+              fn (error) (shared/console-error! |Failed-to-load-snippets)
+                set-status! "|连接失败" $ StatusKind :error
           :examples $ []
           :schema $ quote $ Fn (-> Unit) (:features :js-ffi) (:async)
         'login! $ %{} 'CodeEntry (:doc |)
@@ -407,13 +416,15 @@
                                   swap! *store $ fn (store)
                                     hint-fn $ Fn app.schema/Store $ -> app.schema/Store
                                     .assoc store :password |
-                                  set-status! "|正在同步" |online
+                                  set-status! "|正在同步" $ StatusKind :online
                                   js-await $ load-snippets!
                                   focus-composer!
                               (:err error) (raise error)
-                          do (logout!) (set-status! "|登录失败" |error)
+                          do (logout!)
+                            set-status! "|登录失败" $ StatusKind :error
                     (:err error) (raise error)
-              fn (error) (shared/console-error! |Failed-to-login) (set-status! "|登录失败" |error)
+              fn (error) (shared/console-error! |Failed-to-login)
+                set-status! "|登录失败" $ StatusKind :error
           :examples $ []
           :schema $ quote $ Fn (-> Unit) (:features :js-ffi) (:async)
         'logout! $ %{} 'CodeEntry (:doc |)
@@ -424,7 +435,7 @@
                 .assoc :snippets $ []
                 .assoc :expanded $ #{}
                 .assoc :status "|请登录"
-                .assoc :status-kind |
+                .assoc :status-kind $ StatusKind :idle
             , &unit
           :examples $ []
           :schema $ quote $ Fn (-> Unit)
@@ -432,8 +443,10 @@
           :code $ quote $ defn main! () (watch-store!) (render-app!) (wire-events!)
             if
               .some? $ get-token
-              do (set-status! "|验证登录" |online) (load-snippets!)
-              set-status! "|请登录" |
+              do
+                set-status! "|验证登录" $ StatusKind :online
+                load-snippets!
+              set-status! "|请登录" $ StatusKind :idle
             println |Copyboard-Lite-started
           :examples $ []
           :schema $ quote $ Fn (-> Unit)
@@ -470,7 +483,8 @@
                         js-await $ load-snippets!
                         handle-response-failure! (response :status) "|删除失败"
                   (:err error) (raise error)
-              fn (error) (shared/console-error! |Failed-to-remove-snippet) (set-status! "|删除失败" |error)
+              fn (error) (shared/console-error! |Failed-to-remove-snippet)
+                set-status! "|删除失败" $ StatusKind :error
           :examples $ []
           :schema $ quote $ Fn Number (-> Unit) (:features :js-ffi) (:async)
         'render-app! $ %{} 'CodeEntry (:doc |)
@@ -485,7 +499,7 @@
               -> store (.assoc :status label) (.assoc :status-kind kind)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn String String (-> Unit)
+          :schema $ quote $ Fn String app.schema/StatusKind (-> Unit)
         'store-renewed-token! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn store-renewed-token! (token)
             when (.some? token)
@@ -501,7 +515,9 @@
                 >
                   .len $ .trim content
                   , 0
-                do (set-status! "|保存中" |online) (create-snippet! content)
+                do
+                  set-status! "|保存中" $ StatusKind :online
+                  create-snippet! content
               , &unit
           :examples $ []
           :schema $ quote $ Fn (-> Unit)
@@ -524,7 +540,7 @@
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.lite
           :require (js-ffi.browser :as browser) (js-ffi.shared :as shared) (js-ffi.contract :as contract) (app.schema :as schema)
-            app.schema :refer $ Snippet
+            app.schema :refer $ Snippet StatusKind
             app.updater :refer $ updater
             app.comp :refer $ comp-container
             respo.core :refer $ render! clear-cache!
@@ -541,9 +557,13 @@
           :code $ quote $ defstruct Snippet (:id Number) (:content String) (:created-at Number)
           :examples $ []
           :schema $ quote StructDef
+        'StatusKind $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defenum StatusKind (:idle) (:online) (:error)
+          :examples $ []
+          :schema $ quote EnumDef
         'Store $ %{} 'CodeEntry
           :doc "|Whole UI state rendered by app.comp/comp-container."
-          :code $ quote $ defstruct Store (:logged-in? Bool) (:user String) (:status String) (:status-kind String) (:draft String) (:username String) (:password String)
+          :code $ quote $ defstruct Store (:logged-in? Bool) (:user String) (:status String) (:status-kind app.schema/StatusKind) (:draft String) (:username String) (:password String)
             :snippets $ List app.schema/Snippet
             :expanded $ Set Number
           :examples $ []
@@ -551,7 +571,7 @@
         'store $ %{} 'CodeEntry
           :doc "|Initial store before the saved token is checked."
           :code $ quote $ def store
-            Store :logged-in? false :user | :status "|连接中" :status-kind | :draft | :username | :password | :snippets ([]) :expanded $ #{}
+            Store :logged-in? false :user | :status "|连接中" :status-kind (StatusKind :idle) :draft | :username | :password | :snippets ([]) :expanded $ #{}
           :examples $ []
           :schema $ quote app.schema/Store
       :ns $ %{} 'NsEntry (:doc |)
