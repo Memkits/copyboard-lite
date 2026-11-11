@@ -282,7 +282,7 @@
                               let
                                   snippet $ decode-snippet created
                                 swap! *store $ fn (store)
-                                  hint-fn $ Fn app.schema/Store $ -> app.schema/Store
+                                  hint-fn $ Fn schema/Store $ -> schema/Store
                                   -> store
                                     .assoc :snippets $ prepend (:snippets store) snippet
                                     .assoc :draft |
@@ -310,12 +310,12 @@
           :doc "|Validate the backend snippet array into an immutable list, keeping order."
           :code $ quote $ defn decode-snippets (value)
             let
-                *result $ ref $ assert-type ([]) (List app.schema/Snippet)
+                *result $ ref $ assert-type ([]) (List Snippet)
               .for-each! (checked-snippet-array value)
                 fn (raw-snippet _index _array)
                   swap! *result $ fn (xs)
-                    hint-fn $ Fn (List app.schema/Snippet)
-                      -> $ List app.schema/Snippet
+                    hint-fn $ Fn (List Snippet)
+                      -> $ List Snippet
                     append xs $ decode-snippet raw-snippet
                   , &unit
               , @*result
@@ -377,7 +377,7 @@
                                   username $ .unwrap-or (browser/storage-get |copyboard-lite-user) |
                                   items $ decode-snippets snippets
                                 swap! *store $ fn (store)
-                                  hint-fn $ Fn app.schema/Store $ -> app.schema/Store
+                                  hint-fn $ Fn schema/Store $ -> schema/Store
                                   -> store (.assoc :snippets items) (.assoc :logged-in? true) (.assoc :user username)
                                 set-status! "|已同步" $ StatusKind :online
                             (:err error) (raise error)
@@ -414,7 +414,7 @@
                                   browser/storage-set! |copyboard-lite-token token
                                   browser/storage-set! |copyboard-lite-user user
                                   swap! *store $ fn (store)
-                                    hint-fn $ Fn app.schema/Store $ -> app.schema/Store
+                                    hint-fn $ Fn schema/Store $ -> schema/Store
                                     .assoc store :password |
                                   set-status! "|正在同步" $ StatusKind :online
                                   js-await $ load-snippets!
@@ -430,7 +430,7 @@
         'logout! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn logout! () (browser/storage-remove! |copyboard-lite-token) (browser/storage-remove! |copyboard-lite-user)
             swap! *store $ fn (store)
-              hint-fn $ Fn app.schema/Store $ -> app.schema/Store
+              hint-fn $ Fn schema/Store $ -> schema/Store
               -> store (.assoc :logged-in? false) (.assoc :user |)
                 .assoc :snippets $ []
                 .assoc :expanded $ #{}
@@ -495,7 +495,7 @@
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label kind)
             swap! *store $ fn (store)
-              hint-fn $ Fn app.schema/Store $ -> app.schema/Store
+              hint-fn $ Fn schema/Store $ -> schema/Store
               -> store (.assoc :status label) (.assoc :status-kind kind)
             , &unit
           :examples $ []
@@ -524,7 +524,7 @@
         'watch-store! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn watch-store! ()
             add-watch! *store :render $ fn (_store _prev)
-              hint-fn $ Fn app.schema/Store app.schema/Store $ -> Unit
+              hint-fn $ Fn schema/Store schema/Store $ -> Unit
               render-app!
               , &unit
           :examples $ []
