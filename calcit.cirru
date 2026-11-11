@@ -187,10 +187,10 @@
                         or
                           = |https: $ url :protocol
                           = |http: $ url :protocol
-                      Option :some $ url :href
-                      Option :none
-                  fn (_error) (Option :none)
-                Option :none
+                      Some $ url :href
+                      , None
+                  fn (_error) None
+                , None
           :examples $ []
           :schema $ quote $ Fn String
             -> $ Option String
@@ -219,7 +219,7 @@
           :doc "|Global UI state; every change re-renders through the :render watch."
           :code $ quote $ defref *store schema/store
           :examples $ []
-          :schema $ quote $ Ref app.schema/Store
+          :schema $ quote $ Ref schema/Store
         'SnippetArrayHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait SnippetArrayHost (:length 'Number)
             .for-each! $ Fn app.lite/SnippetArrayHost
@@ -251,12 +251,12 @@
               shared/headers-set! headers |Authorization $ str (shared/decode-uri-component |Bearer%20) token
               , headers
           :examples $ []
-          :schema $ quote $ Fn (-> js-ffi.shared/HeadersHost)
+          :schema $ quote $ Fn (-> shared/HeadersHost)
         'checked-snippet-array $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn checked-snippet-array (value)
             if (js/Array.isArray value) (js-cast value 'app.lite/SnippetArrayHost) (raise |Expected-snippets-array)
           :examples $ []
-          :schema $ quote $ Fn JsObject (-> app.lite/SnippetArrayHost) (:features :js-ffi)
+          :schema $ quote $ Fn JsObject (-> SnippetArrayHost) (:features :js-ffi)
         'copy-content! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn copy-content! (content) (browser/clipboard-write-text! content)
             set-status! "|已复制" $ StatusKind :online
@@ -268,7 +268,7 @@
               let
                   headers $ auth-headers
                   request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :post) headers
-                    Option :some $ contract/expect-string |body $ js/JSON.stringify
+                    Some $ contract/expect-string |body $ js/JSON.stringify
                       js-object $ :content content
                 match request
                   (:ok response)
@@ -305,7 +305,7 @@
                 created-at $ contract/expect-number |created_at $ contract/object-field |snippet snippet |created_at
               Snippet :id id :content content :created-at created-at
           :examples $ []
-          :schema $ quote $ Fn JsObject (-> app.schema/Snippet) (:features :js-ffi)
+          :schema $ quote $ Fn JsObject (-> Snippet) (:features :js-ffi)
         'decode-snippets $ %{} 'CodeEntry
           :doc "|Validate the backend snippet array into an immutable list, keeping order."
           :code $ quote $ defn decode-snippets (value)
@@ -321,7 +321,7 @@
               , @*result
           :examples $ []
           :schema $ quote $ Fn JsObject
-            -> $ List app.schema/Snippet
+            -> $ List Snippet
             :features :js-ffi
         'dispatch! $ %{} 'CodeEntry
           :doc "|Run effect ops, and pass the rest to the pure updater."
@@ -339,7 +339,7 @@
               _ $ reset! *store $ updater @*store op
             , &unit
           :examples $ []
-          :schema $ quote $ Fn app.schema/Op (-> Unit)
+          :schema $ quote $ Fn schema/Op (-> Unit)
         'focus-composer! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn focus-composer! ()
             match (browser/query-selector |#content)
@@ -351,7 +351,7 @@
           :code $ quote $ defn get-token () (browser/storage-get |copyboard-lite-token)
           :examples $ []
           :schema $ quote $ Fn
-            -> $ calcit.core/Option String
+            -> $ Option String
         'handle-response-failure! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-response-failure! (status label)
             if (= 401 status) (logout!)
@@ -363,7 +363,7 @@
             try
               let
                   headers $ auth-headers
-                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers (Option :none)
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets) (%:: shared/HttpMethod :get) headers None
                 match request
                   (:ok response)
                     do
@@ -397,7 +397,7 @@
                 shared/headers-set! headers |Content-Type |application/json
                 let
                     request $ js-await $ shared/fetch-request (str api-base |/api/auth/login) (%:: shared/HttpMethod :post) headers
-                      Option :some $ contract/expect-string |body $ js/JSON.stringify
+                      Some $ contract/expect-string |body $ js/JSON.stringify
                         js-object (:username username) (:password password)
                   match request
                     (:ok response)
@@ -474,7 +474,7 @@
             try
               let
                   headers $ auth-headers
-                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers (Option :none)
+                  request $ js-await $ shared/fetch-request (str api-base |/api/snippets/ id) (%:: shared/HttpMethod :delete) headers None
                 match request
                   (:ok response)
                     do
@@ -499,7 +499,7 @@
               -> store (.assoc :status label) (.assoc :status-kind kind)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn String app.schema/StatusKind (-> Unit)
+          :schema $ quote $ Fn String StatusKind (-> Unit)
         'store-renewed-token! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn store-renewed-token! (token)
             when (.some? token)
@@ -573,7 +573,7 @@
           :code $ quote $ def store
             Store :logged-in? false :user | :status "|连接中" :status-kind (StatusKind :idle) :draft | :username | :password | :snippets ([]) :expanded $ #{}
           :examples $ []
-          :schema $ quote app.schema/Store
+          :schema $ quote Store
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.schema
     'app.updater $ %{} 'FileEntry
