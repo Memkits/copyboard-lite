@@ -261,7 +261,7 @@
           :code $ quote $ defn copy-content! (content) (browser/clipboard-write-text! content)
             set-status! "|已复制" $ StatusKind :online
           :examples $ []
-          :schema $ quote $ Fn String (-> Unit)
+          :schema $ quote $ Fn String (-> Unit) (:features :state)
         'create-snippet! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn create-snippet! (content) (hint-fn Async)
             try
@@ -294,7 +294,7 @@
               fn (error) (shared/console-error! |Failed-to-create-snippet)
                 set-status! "|保存失败" $ StatusKind :error
           :examples $ []
-          :schema $ quote $ Fn String (-> Unit) (:features :js-ffi) (:async)
+          :schema $ quote $ Fn String (-> Unit) (:features :js-ffi :state) (:async)
         'decode-snippet $ %{} 'CodeEntry
           :doc "|Validate one snippet object from the backend JSON."
           :code $ quote $ defn decode-snippet (raw-snippet)
@@ -339,7 +339,7 @@
               _ $ reset! *store $ updater @*store op
             , &unit
           :examples $ []
-          :schema $ quote $ Fn schema/Op (-> Unit)
+          :schema $ quote $ Fn schema/Op (-> Unit) (:features :state)
         'focus-composer! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn focus-composer! ()
             match (browser/query-selector |#content)
@@ -357,7 +357,7 @@
             if (= 401 status) (logout!)
               set-status! label $ StatusKind :error
           :examples $ []
-          :schema $ quote $ Fn Number String (-> Unit)
+          :schema $ quote $ Fn Number String (-> Unit) (:features :state)
         'load-snippets! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn load-snippets! () (hint-fn Async)
             try
@@ -386,7 +386,7 @@
               fn (error) (shared/console-error! |Failed-to-load-snippets)
                 set-status! "|连接失败" $ StatusKind :error
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi) (:async)
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi :state) (:async)
         'login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn login! () (hint-fn Async)
             try
@@ -426,7 +426,7 @@
               fn (error) (shared/console-error! |Failed-to-login)
                 set-status! "|登录失败" $ StatusKind :error
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi) (:async)
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi :state) (:async)
         'logout! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn logout! () (browser/storage-remove! |copyboard-lite-token) (browser/storage-remove! |copyboard-lite-user)
             swap! *store $ fn (store)
@@ -438,7 +438,7 @@
                 .assoc :status-kind $ StatusKind :idle
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (watch-store!) (render-app!) (wire-events!)
             if
@@ -449,7 +449,7 @@
               set-status! "|请登录" $ StatusKind :idle
             println |Copyboard-Lite-started
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'mount-target $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mount-target ()
             .unwrap $ query-selector |#app
@@ -464,11 +464,11 @@
                 _ &unit
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! () (remove-watch! *store :render) (clear-cache!) (watch-store!) (render-app!) (println |Copyboard-Lite-reloaded)
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'remove-snippet! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-snippet! (id) (hint-fn Async)
             try
@@ -486,12 +486,12 @@
               fn (error) (shared/console-error! |Failed-to-remove-snippet)
                 set-status! "|删除失败" $ StatusKind :error
           :examples $ []
-          :schema $ quote $ Fn Number (-> Unit) (:features :js-ffi) (:async)
+          :schema $ quote $ Fn Number (-> Unit) (:features :js-ffi :state) (:async)
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-app! ()
             render! (mount-target) (comp-container @*store) dispatch!
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi :state)
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label kind)
             swap! *store $ fn (store)
@@ -499,7 +499,7 @@
               -> store (.assoc :status label) (.assoc :status-kind kind)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn String StatusKind (-> Unit)
+          :schema $ quote $ Fn String StatusKind (-> Unit) (:features :state)
         'store-renewed-token! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn store-renewed-token! (token)
             when (.some? token)
@@ -520,7 +520,7 @@
                   create-snippet! content
               , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'watch-store! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn watch-store! ()
             add-watch! *store :render $ fn (_store _prev)
@@ -528,7 +528,7 @@
               render-app!
               , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'wire-events! $ %{} 'CodeEntry
           :doc "|Refresh when the page comes back; each successful request renews the session token."
           :code $ quote $ defn wire-events! ()
@@ -536,7 +536,7 @@
             browser/add-event-listener! |focus $ fn (_event) (refresh-if-active!)
             browser/add-event-listener! |online $ fn (_event) (refresh-if-active!)
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :js-ffi :state)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.lite
           :require (js-ffi.browser :as browser) (js-ffi.shared :as shared) (js-ffi.contract :as contract) (app.schema :as schema)

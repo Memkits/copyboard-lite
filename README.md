@@ -19,9 +19,9 @@ yarn dev
 
 前端与后端运行在不同端口，后端为 `/health` 和 `/api/snippets` 开启 CORS。
 
-## 使用者影响：Calcit 0.41.1
+## 使用者影响：Calcit 0.42.1
 
-将 Calcit CLI 和 `@calcit/procs` 一起升级到正式 0.41.1，重新安装依赖、构建并刷新前端。
+将 Calcit CLI 和 `@calcit/procs` 一起升级到正式 0.42.1，重新安装依赖、构建并刷新前端。
 登录、条目展开和保存等界面操作使用既有的具名 `Op`，列表渲染回调返回具体的 Respo `Component`。
 同步状态使用具名枚举，登录、同步及错误提示沿用原文案与样式。服务地址、鉴权协议、存储与 Rust 后端保持。前端预览使用 COS action v1.3.0 的内置校验。
 
