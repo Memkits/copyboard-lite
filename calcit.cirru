@@ -23,8 +23,13 @@
                   span
                     {} $ :class-name |account-label
                     strong $ {} $ :inner-text (:user store)
-                  comp-button "|退出登录" $ opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
+                  comp-button "|退出登录" $ opts ButtonOptions :class-name |btn-sm :on-click $ fn (_e d!)
+                    hint-fn $ Fn respo.schema/RespoEvent
+                      Fn *dispatch-op (-> Unit) (:features :io :state)
+                      -> Unit
+                      :features :io :state
                     d! $ app.schema/Op :logout
+                    , &unit
                 div
                   {} $ :class-name |composer
                   textarea $ {} (:id |content) (:rows 2)
@@ -45,13 +50,23 @@
                   div
                     {} $ :class-name |composer-actions
                     span $ {} $ :inner-text "|⌘ / Ctrl + Enter"
-                    comp-button "|保存" $ opts ButtonOptions :kind :primary :on-click $ dispatch-fn (_e d!)
+                    comp-button "|保存" $ opts ButtonOptions :kind :primary :on-click $ fn (_e d!)
+                      hint-fn $ Fn respo.schema/RespoEvent
+                        Fn *dispatch-op (-> Unit) (:features :io :state)
+                        -> Unit
+                        :features :io :state
                       d! $ app.schema/Op :submit
+                      , &unit
                 div
                   {} $ :class-name |section-title
                   h2 $ {} $ :inner-text "|最近内容"
-                  comp-button "|刷新" $ opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
+                  comp-button "|刷新" $ opts ButtonOptions :class-name |btn-sm :on-click $ fn (_e d!)
+                    hint-fn $ Fn respo.schema/RespoEvent
+                      Fn *dispatch-op (-> Unit) (:features :io :state)
+                      -> Unit
+                      :features :io :state
                     d! $ app.schema/Op :refresh
+                    , &unit
                 if (empty? snippets)
                   p $ {} (:class-name |empty) (:inner-text "|还没有内容，先保存第一条吧。")
                   list->
@@ -120,8 +135,13 @@
                     when
                       = |Enter $ :key $ keyboard-info e
                       d! $ app.schema/Op :login
-                comp-button "|登录" $ opts ButtonOptions :kind :primary :class-name |login-submit :on-click $ dispatch-fn (_e d!)
+                comp-button "|登录" $ opts ButtonOptions :kind :primary :class-name |login-submit :on-click $ fn (_e d!)
+                  hint-fn $ Fn respo.schema/RespoEvent
+                    Fn *dispatch-op (-> Unit) (:features :io :state)
+                    -> Unit
+                    :features :io :state
                   d! $ app.schema/Op :login
+                  , &unit
           :examples $ []
           :schema $ quote $ Fn app.schema/Store (-> respo.schema/Component)
         'comp-snippet $ %{} 'CodeEntry
@@ -158,13 +178,28 @@
                     shared/date-local-string $ shared/date-from-ms $ :created-at snippet
                   if long?
                     comp-button (if expanded? "|收起" "|展开")
-                      opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
+                      opts ButtonOptions :class-name |btn-sm :on-click $ fn (_e d!)
+                        hint-fn $ Fn respo.schema/RespoEvent
+                          Fn *dispatch-op (-> Unit) (:features :io :state)
+                          -> Unit
+                          :features :io :state
                         d! $ app.schema/Op :toggle-expand id
+                        , &unit
                     span $ {}
-                  comp-button "|复制" $ opts ButtonOptions :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
+                  comp-button "|复制" $ opts ButtonOptions :class-name |btn-sm :on-click $ fn (_e d!)
+                    hint-fn $ Fn respo.schema/RespoEvent
+                      Fn *dispatch-op (-> Unit) (:features :io :state)
+                      -> Unit
+                      :features :io :state
                     d! $ app.schema/Op :copy content
-                  comp-button "|删除" $ opts ButtonOptions :kind :danger-outline :class-name |btn-sm :on-click $ dispatch-fn (_e d!)
+                    , &unit
+                  comp-button "|删除" $ opts ButtonOptions :kind :danger-outline :class-name |btn-sm :on-click $ fn (_e d!)
+                    hint-fn $ Fn respo.schema/RespoEvent
+                      Fn *dispatch-op (-> Unit) (:features :io :state)
+                      -> Unit
+                      :features :io :state
                     d! $ app.schema/Op :remove id
+                    , &unit
           :examples $ []
           :schema $ quote $ Fn app.schema/Snippet Bool (-> respo.schema/Component) (:features :js-ffi)
         'link-href $ %{} 'CodeEntry
@@ -208,7 +243,7 @@
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp
           :require
-            respo.core :refer $ defcomp div span strong p a h1 h2 input textarea list-> create-element <> event-value keyboard-info for-keyed dispatch-fn
+            respo.core :refer $ defcomp div span strong p a h1 h2 input textarea list-> create-element <> event-value keyboard-info for-keyed
             respo-ui.comp :refer $ comp-button
             respo-ui.schema :refer $ ButtonOptions opts
             respo-ui.css :as css
@@ -491,7 +526,7 @@
           :code $ quote $ defn render-app! ()
             render! (mount-target) (comp-container @*store) dispatch!
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi :state)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'set-status! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-status! (label kind)
             swap! *store $ fn (store)
@@ -524,11 +559,11 @@
         'watch-store! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn watch-store! ()
             add-watch! *store :render $ fn (_store _prev)
-              hint-fn $ Fn schema/Store schema/Store $ -> Unit
+              hint-fn $ Fn schema/Store schema/Store (-> Unit) (:features :io :state)
               render-app!
               , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :state)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'wire-events! $ %{} 'CodeEntry
           :doc "|Refresh when the page comes back; each successful request renews the session token."
           :code $ quote $ defn wire-events! ()
