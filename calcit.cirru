@@ -289,7 +289,10 @@
           :schema $ quote $ Fn (-> shared/HeadersHost)
         'checked-snippet-array $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn checked-snippet-array (value)
-            if (js/Array.isArray value) (js-cast value 'app.lite/SnippetArrayHost) (raise |Expected-snippets-array)
+            if
+              contract/expect-bool |Array.isArray $ js/Array.isArray value
+              js-cast value 'app.lite/SnippetArrayHost
+              raise |Expected-snippets-array
           :examples $ []
           :schema $ quote $ Fn JsObject (-> SnippetArrayHost) (:features :js-ffi)
         'copy-content! $ %{} 'CodeEntry (:doc |)
